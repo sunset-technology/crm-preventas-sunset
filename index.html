@@ -123,35 +123,6 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     letter-spacing:.04em;
     margin:0 0 -2px;
   }
-  .sidebar-nav{
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-    margin-bottom:8px;
-  }
-  .nav-item{
-    background:transparent;
-    border:none;
-    color:var(--header-subt);
-    text-align:left;
-    padding:9px 10px;
-    border-radius:6px;
-    font-size:13px;
-    font-weight:600;
-    cursor:pointer;
-  }
-  .nav-item:hover{background:rgba(255,255,255,0.08);}
-  .nav-item.activo{background:rgba(255,255,255,0.16); color:#fff;}
-  .alerta-vencidos{
-    background:rgba(192,57,43,0.22);
-    border:1px solid rgba(192,57,43,0.5);
-    color:#fff;
-    font-size:12px;
-    font-weight:600;
-    padding:8px 10px;
-    border-radius:6px;
-    line-height:1.35;
-  }
   .contenido{
     flex:1;
     min-width:0;
@@ -241,65 +212,6 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     gap:12px;
     min-width:max-content;
   }
-  .vista-estadisticas{
-    display:flex;
-    flex-direction:column;
-    gap:22px;
-    max-width:980px;
-  }
-  .stats-resumen{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
-    gap:12px;
-  }
-  .stats-card{
-    background:#fff;
-    border:1px solid var(--borde);
-    border-radius:10px;
-    padding:14px 16px;
-  }
-  .stats-card .etiqueta{
-    font-size:11px;
-    color:var(--texto-suave);
-    margin-bottom:4px;
-    text-transform:uppercase;
-    letter-spacing:.03em;
-  }
-  .stats-card .valor-grande{
-    font-size:21px;
-    font-weight:700;
-    color:var(--texto);
-    margin-bottom:2px;
-  }
-  .stats-seccion-titulo{
-    font-size:13px;
-    font-weight:700;
-    color:var(--texto);
-    margin:0 0 8px;
-  }
-  .stats-tabla{
-    width:100%;
-    border-collapse:collapse;
-    background:#fff;
-    border:1px solid var(--borde);
-    border-radius:10px;
-    overflow:hidden;
-  }
-  .stats-tabla th, .stats-tabla td{
-    padding:9px 12px;
-    text-align:left;
-    font-size:12.5px;
-    border-bottom:1px solid var(--borde);
-  }
-  .stats-tabla th{
-    background:var(--fondo);
-    color:var(--texto-suave);
-    font-weight:700;
-    text-transform:uppercase;
-    font-size:10.5px;
-    letter-spacing:.03em;
-  }
-  .stats-tabla tr:last-child td{border-bottom:none;}
   .columna{
     width:250px;
     flex-shrink:0;
@@ -621,10 +533,6 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
 <div class="app-layout">
   <aside class="sidebar">
-    <nav class="sidebar-nav">
-      <button type="button" class="nav-item activo" id="navTablero">🗂️ Tablero</button>
-      <button type="button" class="nav-item" id="navEstadisticas">📊 Estadísticas</button>
-    </nav>
     <div class="sidebar-titulo">Buscar y filtrar</div>
     <input type="text" id="buscador" placeholder="Buscar por título o cliente…">
     <select id="filtroCliente">
@@ -637,8 +545,6 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
       <option value="">Todos los vendedores</option>
     </select>
     <button class="btn-limpiar" id="btnLimpiar" type="button">Limpiar filtros</button>
-    <button class="btn-limpiar" id="btnExportarCsv" type="button">⬇️ Exportar CSV</button>
-    <div class="alerta-vencidos" id="alertaVencidos" style="display:none;"></div>
     <div style="flex:1;"></div>
     <button class="btn-nueva" id="btnNueva">+ Nueva oportunidad</button>
   </aside>
@@ -661,7 +567,6 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
     <main>
       <div class="tablero" id="tablero"><div class="vacio" style="padding:40px;">Cargando…</div></div>
-      <div class="vista-estadisticas" id="vistaEstadisticas" style="display:none;"></div>
     </main>
   </div>
 </div>
@@ -715,7 +620,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
       <div class="fila2">
         <div class="campo">
           <label>Valor estimado (USD)</label>
-          <input type="number" id="f_valor" min="0" step="1000" placeholder="0">
+          <input type="number" id="f_valor" min="0" step="any" placeholder="0">
         </div>
         <div class="campo">
           <label>Fecha de próxima acción</label>
@@ -1073,15 +978,15 @@ function camposGraphDesdeDeal(datos){
   if(datos.valor !== undefined) fields[CAMPO_SP.valor] = Number(datos.valor) || 0;
   if(datos.probabilidad !== undefined) fields[CAMPO_SP.probabilidad] = Number(datos.probabilidad) || 0;
   if(datos.accion !== undefined) fields[CAMPO_SP.accion] = datos.accion;
-  if(datos.fecha) fields[CAMPO_SP.fecha] = datos.fecha + "T00:00:00Z";
+  if(datos.fecha !== undefined) fields[CAMPO_SP.fecha] = datos.fecha ? datos.fecha + "T00:00:00Z" : null;
   if(datos.motivoPerdida !== undefined && datos.motivoPerdida) fields[CAMPO_SP.motivoPerdida] = datos.motivoPerdida;
   if(datos.contactoNombre !== undefined) fields[CAMPO_SP.contactoNombre] = datos.contactoNombre;
   if(datos.contactoCargo !== undefined) fields[CAMPO_SP.contactoCargo] = datos.contactoCargo;
   if(datos.contactoEmail !== undefined) fields[CAMPO_SP.contactoEmail] = datos.contactoEmail;
   if(datos.contactoTelefono !== undefined) fields[CAMPO_SP.contactoTelefono] = datos.contactoTelefono;
   if(datos.vendors !== undefined) fields[CAMPO_SP.vendors] = datos.vendors;
-  if(datos.fechaPrimerContacto) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto + "T00:00:00Z";
-  if(datos.fechaEstimadaDecision) fields[CAMPO_SP.fechaEstimadaDecision] = datos.fechaEstimadaDecision + "T00:00:00Z";
+  if(datos.fechaPrimerContacto !== undefined) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto ? datos.fechaPrimerContacto + "T00:00:00Z" : null;
+  if(datos.fechaEstimadaDecision !== undefined) fields[CAMPO_SP.fechaEstimadaDecision] = datos.fechaEstimadaDecision ? datos.fechaEstimadaDecision + "T00:00:00Z" : null;
   if(datos.notas !== undefined) fields[CAMPO_SP.notas] = datos.notas;
   if(datos.linkCans !== undefined && datos.linkCans){
     fields[CAMPO_SP.linkCans] = { Url: datos.linkCans, Description: datos.linkCans };
@@ -1195,7 +1100,6 @@ let toastTimeout = null;
 let toastPausado = false;
 const DURACION_TOAST_MS = 10000;
 const ETAPAS_CIERRE = ["ganado", "perdido"]; // requieren confirmación explícita antes de mover
-let vistaActual = "tablero"; // "tablero" | "estadisticas" — qué se muestra en <main>
 
 // ---- Render ----
 function fmtUSD(n){
@@ -1285,95 +1189,7 @@ function pasaFiltros(d, filtros){
   return true;
 }
 
-// ---- Vencidos (badge sidebar) + vista de Estadísticas ----
-function actualizarAlertaVencidos(){
-  const el = document.getElementById("alertaVencidos");
-  const vencidos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa) && fechaVencida(d.fecha)).length;
-  if(vencidos > 0){
-    el.style.display = "block";
-    el.textContent = vencidos === 1 ? "⚠ 1 oportunidad vencida" : `⚠ ${vencidos} oportunidades vencidas`;
-  } else {
-    el.style.display = "none";
-  }
-}
-
-function renderEstadisticas(){
-  const cont = document.getElementById("vistaEstadisticas");
-  if(!modoConectado && deals.length === 0){
-    cont.innerHTML = `
-      <div style="padding:60px 20px; text-align:center;">
-        <div style="font-size:14px; color:var(--texto-suave); margin-bottom:10px;">Todavía no te conectaste a SharePoint.</div>
-        <div style="font-size:12.5px; color:#9AA7B2;">Conectate para ver las estadísticas reales del equipo.</div>
-      </div>
-    `;
-    return;
-  }
-
-  const abiertos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
-  const ganados = deals.filter(d => d.etapa === "ganado");
-  const perdidos = deals.filter(d => d.etapa === "perdido");
-  const sumaValor = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0), 0);
-  const cierres = ganados.length + perdidos.length;
-  const tasaConversion = cierres > 0 ? Math.round((ganados.length / cierres) * 100) : null;
-  const vencidos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa) && fechaVencida(d.fecha)).length;
-
-  const filasEtapa = ETAPAS.map(etapa => {
-    const dealsEtapa = deals.filter(d => d.etapa === etapa.id);
-    const dias = dealsEtapa.map(d => diasEnEtapa(d.fechaCambioEtapa)).filter(x => x !== null);
-    const promedioDias = dias.length > 0 ? Math.round(dias.reduce((s, x) => s + x, 0) / dias.length) : null;
-    return `<tr><td>${escapeHtml(etapa.nombre)}</td><td>${dealsEtapa.length}</td><td>${fmtUSD(sumaValor(dealsEtapa))}</td><td>${promedioDias === null ? "—" : promedioDias + " días"}</td></tr>`;
-  }).join("");
-
-  const filasVendedor = vendedoresUnicos().map(v => {
-    const dealsVendedor = deals.filter(d => d.vendedor === v);
-    const abiertosV = dealsVendedor.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
-    const ganadosV = dealsVendedor.filter(d => d.etapa === "ganado");
-    return `<tr><td>${escapeHtml(v)}</td><td>${abiertosV.length}</td><td>${fmtUSD(sumaValor(abiertosV))}</td><td>${ganadosV.length}</td><td>${fmtUSD(sumaValor(ganadosV))}</td></tr>`;
-  }).join("");
-
-  cont.innerHTML = `
-    <div class="stats-resumen">
-      <div class="stats-card"><div class="etiqueta">Pipeline abierto</div><div class="valor-grande">${abiertos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(abiertos))}</div></div>
-      <div class="stats-card"><div class="etiqueta">Ganadas</div><div class="valor-grande">${ganados.length}</div><div class="etiqueta">${fmtUSD(sumaValor(ganados))}</div></div>
-      <div class="stats-card"><div class="etiqueta">Perdidas</div><div class="valor-grande">${perdidos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(perdidos))}</div></div>
-      <div class="stats-card"><div class="etiqueta">Tasa de conversión</div><div class="valor-grande">${tasaConversion === null ? "—" : tasaConversion + "%"}</div><div class="etiqueta">${cierres} cierre${cierres === 1 ? "" : "s"}</div></div>
-      <div class="stats-card"><div class="etiqueta">Vencidas</div><div class="valor-grande" style="color:var(--rojo);">${vencidos}</div><div class="etiqueta">próxima acción</div></div>
-    </div>
-    <div>
-      <div class="stats-seccion-titulo">Por etapa</div>
-      <table class="stats-tabla">
-        <thead><tr><th>Etapa</th><th>Cantidad</th><th>Valor total</th><th>Días promedio en la etapa actual</th></tr></thead>
-        <tbody>${filasEtapa}</tbody>
-      </table>
-    </div>
-    <div>
-      <div class="stats-seccion-titulo">Por vendedor</div>
-      <table class="stats-tabla">
-        <thead><tr><th>Vendedor</th><th>Abiertas</th><th>Valor abierto</th><th>Ganadas</th><th>Valor ganado</th></tr></thead>
-        <tbody>${filasVendedor || '<tr><td colspan="5" style="text-align:center;color:var(--texto-suave);">Sin datos</td></tr>'}</tbody>
-      </table>
-    </div>
-  `;
-}
-
-function cambiarVista(vista){
-  vistaActual = vista;
-  document.getElementById("navTablero").classList.toggle("activo", vista === "tablero");
-  document.getElementById("navEstadisticas").classList.toggle("activo", vista === "estadisticas");
-  document.getElementById("tablero").style.display = vista === "tablero" ? "" : "none";
-  document.getElementById("resultadosInfo").style.display = vista === "tablero" ? "" : "none";
-  document.getElementById("vistaEstadisticas").style.display = vista === "estadisticas" ? "block" : "none";
-  if(vista === "estadisticas") renderEstadisticas();
-}
-document.getElementById("navTablero").addEventListener("click", () => cambiarVista("tablero"));
-document.getElementById("navEstadisticas").addEventListener("click", () => cambiarVista("estadisticas"));
-
 function renderTablero(){
-  // Estas dos vistas dependen solo de `deals`/`modoConectado`, no de los filtros del tablero —
-  // se recalculan siempre que se llama a renderTablero(), sin importar la rama que siga abajo.
-  actualizarAlertaVencidos();
-  if(vistaActual === "estadisticas") renderEstadisticas();
-
   const filtros = {
     busqueda: document.getElementById("buscador").value.trim(),
     cliente: document.getElementById("filtroCliente").value,
@@ -1879,15 +1695,6 @@ document.getElementById("form").addEventListener("submit", async e => {
     return;
   }
 
-  // Se calcula ANTES de guardar: comparar contra listas ya actualizadas con este mismo deal
-  // haría que nunca se detecte un valor como "nuevo".
-  const conocidosAntesDeGuardar = {
-    clientes: new Set([...CLIENTES_BASE, ...clientesUnicos()]),
-    paises: new Set([...PAISES_BASE, ...paisesUnicos()]),
-    vendedores: new Set([...VENDEDORES_BASE, ...vendedoresUnicos()]),
-    vendors: new Set([...VENDORS_OPCIONES, ...deals.flatMap(x => x.vendors || [])]),
-  };
-
   const btnGuardar = e.target.querySelector('button[type="submit"]');
   btnGuardar.disabled = true;
 
@@ -1909,7 +1716,6 @@ document.getElementById("form").addEventListener("submit", async e => {
         deals.push({ id: String(nextId++), ...datos, fechaCambioEtapa });
       }
     }
-    promoverValoresNuevosSiCorresponde(datos, conocidosAntesDeGuardar); // best-effort, no se espera
     cerrarModal();
     renderTablero();
     poblarSelects();
@@ -1932,99 +1738,6 @@ document.getElementById("btnLimpiar").addEventListener("click", () => {
   document.getElementById("filtroVendedor").value = "";
   renderTablero();
 });
-
-// ---- Exportar a CSV (respeta los filtros actuales del tablero) ----
-function escaparCsv(valor){
-  const s = String(valor === undefined || valor === null ? "" : valor);
-  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function exportarCSV(){
-  const filtros = {
-    busqueda: document.getElementById("buscador").value.trim(),
-    cliente: document.getElementById("filtroCliente").value,
-    pais: document.getElementById("filtroPais").value,
-    vendedor: document.getElementById("filtroVendedor").value,
-  };
-  const filas = deals.filter(d => pasaFiltros(d, filtros));
-  const columnas = [
-    ["Título", d => d.titulo],
-    ["Cliente", d => d.cliente],
-    ["País", d => d.pais],
-    ["Vendedor", d => d.vendedor],
-    ["Etapa", d => { const e = ETAPAS.find(x => x.id === d.etapa); return e ? e.nombre : d.etapa; }],
-    ["Sucursal", d => d.sucursal || ""],
-    ["Valor estimado (USD)", d => d.valor || 0],
-    ["Probabilidad (%)", d => d.probabilidad || ""],
-    ["Próxima acción", d => d.accion === "—" ? "" : d.accion],
-    ["Fecha próxima acción", d => d.fecha ? fmtFecha(d.fecha) : ""],
-    ["Días en etapa actual", d => { const n = diasEnEtapa(d.fechaCambioEtapa); return n === null ? "" : n; }],
-    ["Vendors involucrados", d => (d.vendors || []).join("; ")],
-    ["Motivo de pérdida", d => d.motivoPerdida || ""],
-    ["CANS creado", d => d.cansCreado ? "Sí" : "No"],
-  ];
-  const encabezado = columnas.map(c => escaparCsv(c[0])).join(",");
-  const filasCsv = filas.map(d => columnas.map(c => escaparCsv(c[1](d))).join(","));
-  const contenido = "﻿" + [encabezado, ...filasCsv].join("\r\n"); // BOM: Excel abre bien los acentos
-  const blob = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `oportunidades_${hoyISO()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-document.getElementById("btnExportarCsv").addEventListener("click", exportarCSV);
-
-// ---- Auto-promoción de valores nuevos (Cliente/País/Vendedor/Vendors) al choice maestro de SharePoint ----
-// Best-effort: si falla (por ejemplo, el permiso del sitio para esta app es "write" y hace falta
-// "manage" para editar la definición de una columna), no bloquea ni revierte el guardado del deal —
-// solo se pierde que el valor nuevo quede como sugerencia para el resto del equipo en SharePoint.
-let columnasGraphCache = null;
-async function obtenerColumnasGraph(){
-  if(!columnasGraphCache){
-    const data = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/columns?$select=id,name`);
-    columnasGraphCache = {};
-    (data.value || []).forEach(c => { columnasGraphCache[c.name] = c.id; });
-  }
-  return columnasGraphCache;
-}
-
-async function promoverValorNuevoAChoice(nombreInterno, valorNuevo){
-  if(!valorNuevo) return;
-  try {
-    const columnas = await obtenerColumnasGraph();
-    const columnaId = columnas[nombreInterno];
-    if(!columnaId) return;
-    const columna = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/columns/${columnaId}`);
-    const choicesActuales = columna.choice && columna.choice.choices;
-    if(!Array.isArray(choicesActuales) || choicesActuales.includes(valorNuevo)) return;
-    await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/columns/${columnaId}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        choice: {
-          choices: [...choicesActuales, valorNuevo],
-          displayAs: columna.choice.displayAs,
-          allowTextEntry: columna.choice.allowTextEntry,
-        },
-      }),
-    });
-  } catch (e) {
-    console.warn(`No se pudo agregar "${valorNuevo}" al choice maestro de "${nombreInterno}" en SharePoint (¿falta el permiso "manage" en Sites.Selected para esta app?):`, e);
-  }
-}
-
-function promoverValoresNuevosSiCorresponde(datos, conocidos){
-  if(!modoConectado) return;
-  if(datos.cliente && !conocidos.clientes.has(datos.cliente)) promoverValorNuevoAChoice(CAMPO_SP.cliente, datos.cliente);
-  if(datos.pais && !conocidos.paises.has(datos.pais)) promoverValorNuevoAChoice(CAMPO_SP.pais, datos.pais);
-  if(datos.vendedor && !conocidos.vendedores.has(datos.vendedor)) promoverValorNuevoAChoice(CAMPO_SP.vendedor, datos.vendedor);
-  (datos.vendors || []).forEach(v => {
-    if(v && !conocidos.vendors.has(v)) promoverValorNuevoAChoice(CAMPO_SP.vendors, v);
-  });
-}
 
 // ---- Init ----
 // No se renderiza nada (más allá del "Cargando…" que ya está en el HTML) hasta saber si hay
