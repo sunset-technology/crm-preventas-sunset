@@ -1073,15 +1073,15 @@ function camposGraphDesdeDeal(datos){
   if(datos.valor !== undefined) fields[CAMPO_SP.valor] = Number(datos.valor) || 0;
   if(datos.probabilidad !== undefined) fields[CAMPO_SP.probabilidad] = Number(datos.probabilidad) || 0;
   if(datos.accion !== undefined) fields[CAMPO_SP.accion] = datos.accion;
-  if(datos.fecha !== undefined) fields[CAMPO_SP.fecha] = datos.fecha ? datos.fecha + "T00:00:00Z" : null;
+  if(datos.fecha) fields[CAMPO_SP.fecha] = datos.fecha + "T00:00:00Z";
   if(datos.motivoPerdida !== undefined && datos.motivoPerdida) fields[CAMPO_SP.motivoPerdida] = datos.motivoPerdida;
   if(datos.contactoNombre !== undefined) fields[CAMPO_SP.contactoNombre] = datos.contactoNombre;
   if(datos.contactoCargo !== undefined) fields[CAMPO_SP.contactoCargo] = datos.contactoCargo;
   if(datos.contactoEmail !== undefined) fields[CAMPO_SP.contactoEmail] = datos.contactoEmail;
   if(datos.contactoTelefono !== undefined) fields[CAMPO_SP.contactoTelefono] = datos.contactoTelefono;
   if(datos.vendors !== undefined) fields[CAMPO_SP.vendors] = datos.vendors;
-  if(datos.fechaPrimerContacto !== undefined) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto ? datos.fechaPrimerContacto + "T00:00:00Z" : null;
-  if(datos.fechaEstimadaDecision !== undefined) fields[CAMPO_SP.fechaEstimadaDecision] = datos.fechaEstimadaDecision ? datos.fechaEstimadaDecision + "T00:00:00Z" : null;
+  if(datos.fechaPrimerContacto) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto + "T00:00:00Z";
+  if(datos.fechaEstimadaDecision) fields[CAMPO_SP.fechaEstimadaDecision] = datos.fechaEstimadaDecision + "T00:00:00Z";
   if(datos.notas !== undefined) fields[CAMPO_SP.notas] = datos.notas;
   if(datos.linkCans !== undefined && datos.linkCans){
     fields[CAMPO_SP.linkCans] = { Url: datos.linkCans, Description: datos.linkCans };
