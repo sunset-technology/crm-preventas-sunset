@@ -1867,7 +1867,7 @@ document.getElementById("form").addEventListener("submit", async e => {
 
   // Mismos gates que en el tablero, por si la etapa se cambia acá en vez de con drag&drop.
   if(!ETAPAS_CIERRE.includes(datos.etapa) && !datos.fecha){
-    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" sin definir la Fecha de próxima acción. Es obligatoria para poder crear o avanzar una oportunidad (no aplica en Ganado/Perdido).`);
+    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" sin definir la Fecha de próxima acción.`);
     return;
   }
   if(GATE_CANS.includes(datos.etapa) && !datos.linkCans){
