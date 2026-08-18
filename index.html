@@ -1079,7 +1079,7 @@ function camposGraphDesdeDeal(datos){
   if(datos.contactoCargo !== undefined) fields[CAMPO_SP.contactoCargo] = datos.contactoCargo;
   if(datos.contactoEmail !== undefined) fields[CAMPO_SP.contactoEmail] = datos.contactoEmail;
   if(datos.contactoTelefono !== undefined) fields[CAMPO_SP.contactoTelefono] = datos.contactoTelefono;
-  if(datos.vendors !== undefined) fields[CAMPO_SP.vendors] = datos.vendors;
+  if(datos.vendors !== undefined && datos.vendors.length > 0) fields[CAMPO_SP.vendors] = datos.vendors;
   if(datos.fechaPrimerContacto) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto + "T00:00:00Z";
   if(datos.fechaEstimadaDecision) fields[CAMPO_SP.fechaEstimadaDecision] = datos.fechaEstimadaDecision + "T00:00:00Z";
   if(datos.notas !== undefined) fields[CAMPO_SP.notas] = datos.notas;
