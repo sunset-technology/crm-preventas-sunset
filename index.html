@@ -959,8 +959,8 @@ const CAMPO_SP = {
   accion: "Pr_x00f3_ximaacci_x00f3_n",
   fecha: "Fechadepr_x00f3_ximaacci_x00f3_n",
   notas: "Notas_x002f_descripci_x00f3_ndel",
-  linkCans: "LinkalCANS_x002f_carpetadelproye",
-  linkPropuesta: "Link_x0020_a_x0020_la_x0020_prop",
+  linkCans: "LinkCANSTexto",
+  linkPropuesta: "LinkPropuestaTexto",
   fechaCambioEtapa: "Fecha_x0020_de_x0020_cambio_x002",
   contactoNombre: "Nombredelcontactoprincipal",
   contactoCargo: "Cargo",
@@ -1052,8 +1052,8 @@ function dealDesdeItemGraph(item){
     fechaPrimerContacto: (f[CAMPO_SP.fechaPrimerContacto] || "").slice(0, 10),
     fechaEstimadaDecision: (f[CAMPO_SP.fechaEstimadaDecision] || "").slice(0, 10),
     notas: f[CAMPO_SP.notas] || "",
-    linkCans: (f[CAMPO_SP.linkCans] && f[CAMPO_SP.linkCans].Url) || "",
-    linkPropuesta: (f[CAMPO_SP.linkPropuesta] && f[CAMPO_SP.linkPropuesta].Url) || "",
+    linkCans: f[CAMPO_SP.linkCans] || "",
+    linkPropuesta: f[CAMPO_SP.linkPropuesta] || "",
     cansCreado: !!f[CAMPO_SP.cansCreado],
     fechaCreacionCans: (f[CAMPO_SP.fechaCreacionCans] || "").slice(0, 10),
     fechaCambioEtapa: f[CAMPO_SP.fechaCambioEtapa]
@@ -1083,12 +1083,8 @@ function camposGraphDesdeDeal(datos){
   if(datos.fechaPrimerContacto) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto + "T00:00:00Z";
   if(datos.fechaEstimadaDecision) fields[CAMPO_SP.fechaEstimadaDecision] = datos.fechaEstimadaDecision + "T00:00:00Z";
   if(datos.notas !== undefined) fields[CAMPO_SP.notas] = datos.notas;
-  if(datos.linkCans !== undefined && datos.linkCans){
-    fields[CAMPO_SP.linkCans] = { Url: datos.linkCans, Description: datos.linkCans };
-  }
-  if(datos.linkPropuesta !== undefined && datos.linkPropuesta){
-    fields[CAMPO_SP.linkPropuesta] = { Url: datos.linkPropuesta, Description: datos.linkPropuesta };
-  }
+  if(datos.linkCans !== undefined) fields[CAMPO_SP.linkCans] = datos.linkCans || "";
+  if(datos.linkPropuesta !== undefined) fields[CAMPO_SP.linkPropuesta] = datos.linkPropuesta || "";
   if(datos.fechaCambioEtapa !== undefined && datos.fechaCambioEtapa){
     fields[CAMPO_SP.fechaCambioEtapa] = datos.fechaCambioEtapa + "T00:00:00Z";
   }
