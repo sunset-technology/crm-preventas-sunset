@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CRM Preventas Sunset — Prototipo</title>
+<title>Base de Datos — Clientes y Vendors</title>
 <script>
 /* MSAL.js v3.30.0 (@azure/msal-browser) embebido localmente para no depender de un CDN externo,
    ya que la red de Sunset bloquea la carga de scripts desde CDNs (alcdn.msauth.net y jsdelivr
@@ -618,1549 +618,340 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 </style>
 </head>
 <body>
-
-<div class="app-layout">
-  <aside class="sidebar">
-    <nav class="sidebar-nav">
-      <button type="button" class="nav-item activo" id="navTablero">🗂️ Tablero</button>
-      <button type="button" class="nav-item" id="navEstadisticas">📊 Estadísticas</button>
-    </nav>
-    <div class="sidebar-titulo">Buscar y filtrar</div>
-    <input type="text" id="buscador" placeholder="Buscar por título o cliente…">
-    <select id="filtroCliente">
-      <option value="">Todos los clientes</option>
-    </select>
-    <select id="filtroPais">
-      <option value="">Todos los países</option>
-    </select>
-    <select id="filtroVendedor">
-      <option value="">Todos los vendedores</option>
-    </select>
-    <button class="btn-limpiar" id="btnLimpiar" type="button">Limpiar filtros</button>
-    <button class="btn-limpiar" id="btnExportarCsv" type="button">⬇️ Exportar CSV</button>
-    <a href="./clientes-vendors.html" target="_blank" class="btn-limpiar" style="display:block; text-align:center; text-decoration:none;">📇 Clientes / Vendors</a>
-    <div class="alerta-vencidos" id="alertaVencidos" style="display:none;"></div>
+<div class="app">
+  <aside class="sidebar" style="width:230px;">
+    <div style="padding:14px 16px; font-weight:700; font-size:15px;">📇 Base de Datos</div>
+    <button type="button" class="nav-item activo" id="tabClientes" style="text-align:left; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; color:#fff; font-size:14px;">🏢 Clientes / Contactos</button>
+    <button type="button" class="nav-item" id="tabVendors" style="text-align:left; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; color:#fff; font-size:14px;">🏭 Vendors</button>
     <div style="flex:1;"></div>
-    <button class="btn-nueva" id="btnNueva">+ Nueva oportunidad</button>
+    <div style="padding:14px 16px;"><a href="./index.html" style="color:#fff; font-size:13px;">← Volver al CRM</a></div>
   </aside>
   <div class="contenido">
     <header>
-      <div class="marca">
-        <div>
-          <h1>CRM Preventas Sunset — Oportunidades</h1>
-          <div class="subt" id="subtitulo">Modo prueba · datos de ejemplo (no se guardan en SharePoint)</div>
-        </div>
+      <div>
+        <h1>Base de Datos — Clientes y Vendors</h1>
+        <div class="subtitulo" id="subtitulo">Conectate a SharePoint para ver y cargar datos.</div>
       </div>
-      <div class="header-derecha">
-        <img class="logo" src="data:image/png;base64,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" alt="Sunset Technology">
-        <button class="btn-limpiar" id="btnConectar" type="button">🔌 Conectar a SharePoint</button>
-        <span class="subt" id="estadoConexion" style="display:none;"></span>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span id="estadoConexion" style="font-size:13px;"></span>
+        <button type="button" class="btn-primario" id="btnConectar">🔌 Conectar a SharePoint</button>
       </div>
     </header>
-
-    <div class="resultados-info" id="resultadosInfo"></div>
-
     <main>
-      <div class="tablero" id="tablero"><div class="vacio" style="padding:40px;">Cargando…</div></div>
-      <div class="vista-estadisticas" id="vistaEstadisticas" style="display:none;"></div>
+      <div id="vistaClientes">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:0 0 14px;">
+          <input type="text" id="buscarCliente" placeholder="Buscar por empresa o contacto…" style="max-width:320px;">
+          <button type="button" class="btn-primario" id="btnNuevoCliente">+ Agregar contacto</button>
+        </div>
+        <table class="tabla-datos" id="tablaClientes"></table>
+      </div>
+      <div id="vistaVendors" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:0 0 14px;">
+          <input type="text" id="buscarVendor" placeholder="Buscar por nombre…" style="max-width:320px;">
+          <button type="button" class="btn-primario" id="btnNuevoVendor">+ Agregar vendor</button>
+        </div>
+        <table class="tabla-datos" id="tablaVendors"></table>
+      </div>
     </main>
   </div>
 </div>
 
-<div class="overlay" id="overlay">
+<div class="overlay" id="overlayCliente">
   <div class="modal">
-    <h2 id="modalTitulo">Nueva oportunidad</h2>
-    <form id="form">
-      <div class="campo">
-        <label>Nombre de la oportunidad</label>
-        <input type="text" id="f_titulo" required placeholder="Ej: Claro Guatemala - Renovación SBC">
+    <h2>Cliente / Contacto</h2>
+    <form id="formCliente">
+      <div class="fila2">
+        <div class="campo"><label>Empresa</label><input type="text" id="c_empresa" required></div>
+        <div class="campo"><label>País</label><input type="text" id="c_pais"></div>
       </div>
       <div class="fila2">
-        <div class="campo">
-          <label>Cliente</label>
-          <input type="text" id="f_cliente" list="dl_clientes" required placeholder="Elegí uno o escribí uno nuevo" autocomplete="off">
-          <datalist id="dl_clientes"></datalist>
-        </div>
-        <div class="campo">
-          <label>País</label>
-          <input type="text" id="f_pais" list="dl_paises" required placeholder="Elegí uno o escribí uno nuevo" autocomplete="off">
-          <datalist id="dl_paises"></datalist>
-        </div>
+        <div class="campo"><label>Nombre del contacto</label><input type="text" id="c_nombre"></div>
+        <div class="campo"><label>Cargo</label><input type="text" id="c_cargo"></div>
       </div>
       <div class="fila2">
-        <div class="campo">
-          <label>Vendedor / Responsable comercial</label>
-          <input type="text" id="f_vendedor" list="dl_vendedores" required placeholder="Elegí uno o escribí uno nuevo" autocomplete="off">
-          <datalist id="dl_vendedores"></datalist>
-        </div>
-        <div class="campo">
-          <label>Etapa</label>
-          <select id="f_etapa"></select>
-        </div>
+        <div class="campo"><label>Email</label><input type="email" id="c_email"></div>
+        <div class="campo"><label>Teléfono</label><input type="text" id="c_telefono"></div>
       </div>
-      <div class="fila2">
-        <div class="campo">
-          <label>Sucursal Sunset responsable</label>
-          <select id="f_sucursal">
-            <option value="">Sin definir</option>
-            <option value="Argentina">Argentina</option>
-            <option value="Estados Unidos">Estados Unidos</option>
-            <option value="España">España</option>
-          </select>
-        </div>
-        <div class="campo">
-          <label>Probabilidad de cierre (%) <span style="font-weight:400;">(automática según etapa)</span></label>
-          <input type="number" id="f_probabilidad" min="0" max="100" readonly disabled>
-        </div>
-      </div>
-      <div class="fila2">
-        <div class="campo">
-          <label>Valor estimado (USD)</label>
-          <input type="number" id="f_valor" min="0" step="any" placeholder="0">
-        </div>
-        <div class="campo">
-          <label>Upside</label>
-          <label style="display:flex; align-items:center; gap:6px; font-weight:400; padding-top:6px;">
-            <input type="checkbox" id="f_upside" style="width:auto;">
-            Elegible para cerrar en un Q anterior al previsto
-          </label>
-        </div>
-      </div>
-      <div class="fila2">
-        <div class="campo">
-          <label>Fecha estimada de cierre</label>
-          <input type="date" id="f_fecha">
-        </div>
-        <div class="campo">
-          <label>Quarter / Año</label>
-          <input type="text" id="f_quarter" readonly disabled placeholder="Se calcula solo">
-        </div>
-      </div>
-      <div class="campo">
-        <label>Próxima acción</label>
-        <input type="text" id="f_accion" placeholder="Ej: Enviar propuesta técnica">
-      </div>
-      <div class="campo" id="wrapMotivoPerdida" style="display:none;">
-        <label>Motivo de pérdida</label>
-        <select id="f_motivoPerdida"></select>
-      </div>
-
-      <div class="seccion-titulo">Datos de contacto <span style="font-weight:400;"><a href="./clientes-vendors.html" target="_blank">gestionar clientes/contactos ↗</a></span></div>
-      <div class="campo" id="wrapContactoGuardado" style="display:none;">
-        <label>Contacto guardado de este cliente</label>
-        <select id="f_contactoGuardado"><option value="">— Elegir de la base de datos —</option></select>
-      </div>
-      <div class="fila2">
-        <div class="campo">
-          <label>Nombre del contacto</label>
-          <input type="text" id="f_contactoNombre" placeholder="Ej: Juan Pérez">
-        </div>
-        <div class="campo">
-          <label>Cargo</label>
-          <input type="text" id="f_contactoCargo" placeholder="Ej: Gerente de Redes">
-        </div>
-      </div>
-      <div class="fila2">
-        <div class="campo">
-          <label>Email</label>
-          <input type="email" id="f_contactoEmail" placeholder="nombre@cliente.com">
-        </div>
-        <div class="campo">
-          <label>Teléfono</label>
-          <input type="text" id="f_contactoTelefono" placeholder="+502 ...">
-        </div>
-      </div>
-
-      <div class="seccion-titulo">Seguimiento</div>
-      <div class="campo">
-        <label>Vendors involucrados <span style="font-weight:400;">(incluye ingenieros externos — escribí el nombre si no está en la lista)</span></label>
-        <div class="chips-vendors" id="chipsVendors"></div>
-        <div class="fila-agregar-vendor">
-          <input type="text" id="f_vendorNuevo" list="dl_vendors" placeholder="Elegí uno o escribí uno nuevo" autocomplete="off">
-          <datalist id="dl_vendors"></datalist>
-          <button type="button" class="btn-secundario" id="btnAgregarVendor">+ Agregar</button>
-        </div>
-      </div>
-      <div class="fila2">
-        <div class="campo">
-          <label>Fecha de primer contacto</label>
-          <input type="date" id="f_fechaPrimerContacto">
-        </div>
-        <div class="campo">
-          <label>Fecha estimada de decisión</label>
-          <input type="date" id="f_fechaEstimadaDecision">
-        </div>
-      </div>
-      <div class="campo">
-        <label>Descripción / Notas</label>
-        <textarea id="f_notas" rows="3" placeholder="Ej: El cliente también está evaluando a otro proveedor. Prioridad alta por fin de año fiscal."></textarea>
-      </div>
-
-      <div class="seccion-titulo">Documentos</div>
-      <div class="campo">
-        <label>Link al CANS / carpeta del proyecto <span style="font-weight:400;">(opcional — se pide al llegar a "Proposal")</span></label>
-        <input type="text" id="f_linkCans" placeholder="https://sunsettechnology567.sharepoint.com/...">
-      </div>
-      <div class="campo">
-        <label>Link a la propuesta técnica <span style="font-weight:400;">(opcional — se pide al llegar a "Forecast")</span></label>
-        <input type="text" id="f_linkPropuesta" placeholder="https://sunsettechnology567.sharepoint.com/...">
-      </div>
-      <div class="campo" id="wrapCansCreado" style="display:none;">
-        <label>Estado del CANS</label>
-        <div id="indicadorCansCreado" style="font-size:12.5px; color:var(--texto-suave);"></div>
-      </div>
+      <div class="campo"><label>Ubicación</label><input type="text" id="c_ubicacion" placeholder="Ciudad / oficina"></div>
+      <div class="campo"><label>Notas</label><textarea id="c_notas" rows="2"></textarea></div>
       <div class="modal-acciones">
-        <button type="button" class="btn-eliminar" id="btnEliminar" style="display:none;">Eliminar</button>
+        <button type="button" class="btn-eliminar" id="btnEliminarCliente" style="display:none;">Eliminar</button>
         <div style="display:flex; gap:8px; margin-left:auto;">
-          <button type="button" class="btn-secundario" id="btnCancelar">Cancelar</button>
+          <button type="button" class="btn-secundario" id="btnCancelarCliente">Cancelar</button>
           <button type="submit" class="btn-primario">Guardar</button>
         </div>
       </div>
-      <div class="nota-graph">Prototipo con datos en memoria. La versión conectada guarda estos cambios directo en la lista "Oportunidades_Preventas" de SharePoint vía Microsoft Graph.</div>
     </form>
   </div>
 </div>
 
-<div class="overlay" id="overlayConfirm">
-  <div class="modal modal-confirm">
-    <h2>Confirmar cambio de etapa</h2>
-    <p id="confirmTexto"></p>
-    <div class="campo" id="wrapMotivoPerdidaConfirm" style="display:none;">
-      <label>Motivo de pérdida</label>
-      <select id="f_motivoPerdidaConfirm"></select>
-    </div>
-    <div class="modal-acciones" style="justify-content:flex-end;">
-      <button type="button" class="btn-secundario" id="btnConfirmCancelar">Cancelar</button>
-      <button type="button" class="btn-primario" id="btnConfirmAceptar">Confirmar</button>
-    </div>
-  </div>
-</div>
-
-<div class="overlay" id="overlayLink">
-  <div class="modal modal-confirm">
-    <h2 id="linkPromptTitulo">Vincular documento</h2>
-    <p id="linkPromptTexto"></p>
-    <div class="campo">
-      <label id="linkPromptLabel">Link</label>
-      <input type="text" id="f_linkPrompt" placeholder="https://sunsettechnology567.sharepoint.com/...">
-    </div>
-    <div class="modal-acciones">
-      <button type="button" class="btn-eliminar" id="btnLinkOmitir" style="text-decoration:underline;">Continuar sin agregarlo</button>
-      <div style="display:flex; gap:8px; margin-left:auto;">
-        <button type="button" class="btn-secundario" id="btnLinkCancelar">Cancelar</button>
-        <button type="button" class="btn-primario" id="btnLinkConfirmar">Guardar y mover</button>
+<div class="overlay" id="overlayVendor">
+  <div class="modal">
+    <h2>Vendor</h2>
+    <form id="formVendor">
+      <div class="fila2">
+        <div class="campo"><label>Nombre del vendor</label><input type="text" id="v_nombre" required></div>
+        <div class="campo"><label>Contacto</label><input type="text" id="v_contacto"></div>
       </div>
-    </div>
+      <div class="fila2">
+        <div class="campo"><label>Email</label><input type="email" id="v_email"></div>
+        <div class="campo"><label>Teléfono</label><input type="text" id="v_telefono"></div>
+      </div>
+      <div class="campo"><label>Página web</label><input type="text" id="v_web" placeholder="https://..."></div>
+      <div class="campo"><label>Productos</label><input type="text" id="v_productos" placeholder="Ej: SBC, DRA, PCRF"></div>
+      <div class="campo"><label>Descripción</label><textarea id="v_descripcion" rows="2"></textarea></div>
+      <div class="modal-acciones">
+        <button type="button" class="btn-eliminar" id="btnEliminarVendor" style="display:none;">Eliminar</button>
+        <div style="display:flex; gap:8px; margin-left:auto;">
+          <button type="button" class="btn-secundario" id="btnCancelarVendor">Cancelar</button>
+          <button type="submit" class="btn-primario">Guardar</button>
+        </div>
+      </div>
+    </form>
   </div>
 </div>
 
-<div class="overlay" id="overlayBloqueo">
-  <div class="modal modal-confirm">
-    <h2>No se puede mover todavía</h2>
-    <p id="bloqueoTexto"></p>
-    <div class="modal-acciones" style="justify-content:flex-end;">
-      <button type="button" class="btn-primario" id="btnBloqueoEntendido">Entendido</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast">
-  <span id="toastTexto"></span>
-  <button type="button" id="btnDeshacer">Deshacer</button>
-</div>
+<style>
+.tabla-datos{width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);}
+.tabla-datos th{background:var(--header-select-bg,#0F5860); color:#fff; text-align:left; padding:10px 12px; font-size:12.5px;}
+.tabla-datos td{padding:10px 12px; border-bottom:1px solid #eee; font-size:13.5px; cursor:pointer;}
+.tabla-datos tr:hover td{background:#f5f9fa;}
+</style>
 
 <script>
-// ---- Config de etapas (igual a CRM_Preventas_Definicion_Conceptual_v2.docx) ----
-const ETAPAS = [
-  { id: "lead", nombre: "1. Lead/Universe" },
-  { id: "unqualified", nombre: "2. Unqualified" },
-  { id: "qualified", nombre: "3. Qualified" },
-  { id: "proposal", nombre: "4. Proposal" },
-  { id: "forecast", nombre: "5. Forecast" },
-  { id: "forecastcommit", nombre: "6. Forecast Commit" },
-  { id: "won", nombre: "7. Won", clase: "won" },
-  { id: "lost", nombre: "8. Lost", clase: "lost" },
-];
-// % de Probabilidad de cierre, automático según la etapa (no editable a mano).
-const PROBABILIDAD_POR_ETAPA = {
-  lead: 5, unqualified: 15, qualified: 30, proposal: 50,
-  forecast: 70, forecastcommit: 90, won: 100, lost: 0,
-};
-
-// ---- Listas base (de TablasDimensiones del CANS) ----
-// Sirven como sugerencias de partida; Cliente, País y Vendedor son "ad hoc":
-// se puede elegir uno de acá o escribir uno nuevo directo en el campo, sin editar código.
-const CLIENTES_BASE = ["CIRION", "CLARO", "DATATRONICS", "DTE", "ENTEL", "GOBIERNO", "INTEGRATEL", "LEDEFYL", "MILICOM", "TECH MAHINDRA", "TELECOM", "TELEFONICA"];
-const PAISES_BASE = ["Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Costa Rica", "Ecuador", "El Salvador", "España", "Guatemala", "Guyana", "Honduras", "México", "Nicaragua", "Panamá", "Paraguay", "Perú", "Rep. Dominicana", "Surinam", "Uruguay", "Venezuela"];
-const VENDEDORES_BASE = ["Gustavo Guaspari", "Gustavo Molina"];
-
-// Listas cerradas (confirmadas vía REST contra los choices reales de SharePoint, 14 ago 2026).
-const VENDORS_OPCIONES = ["Titanium", "Squire", "Rakuten", "One2many", "Sagent", "Xius", "NG-Voice", "Khomp", "Otro"];
-const MOTIVO_PERDIDA_OPCIONES = ["Precio", "Timing", "Perdido vs competidor", "Proyecto cancelado por cliente", "Sin presupuesto", "No calificó", "Otro"];
-
-// Config de los dos documentos vinculados y en qué etapa se piden/exigen.
-// - "cans": carpeta del proyecto/CANS, la crea Flujo A al llegar a "En preparación de propuesta".
-// - "propuesta": documento de la propuesta técnica, se sube/vincula al llegar a "Propuesta enviada".
-// GATE_* = bloqueo duro: no se puede ENTRAR a esa etapa si falta el link (hay que pasar por la etapa que lo genera).
-// SOFT_PROMPT_* = al entrar a esa etapa sin el link, se pide pegarlo (se puede omitir).
-const LINK_CONFIG = {
-  cans: {
-    campo: "linkCans",
-    titulo: "Vincular CANS",
-    label: "Link al CANS",
-    placeholder: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/...",
-    textoPrompt: titulo => `El CANS de "${titulo}" se crea en esta etapa. Pegá el link a la carpeta del proyecto / CANS.`,
-  },
-  propuesta: {
-    campo: "linkPropuesta",
-    titulo: "Vincular propuesta técnica",
-    label: "Link a la propuesta técnica",
-    placeholder: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/.../Propuesta Tecnica",
-    textoPrompt: titulo => `Antes de marcar "${titulo}" como enviada, pegá el link a la propuesta técnica (carpeta distinta a la del CANS).`,
-  },
-};
-const SOFT_PROMPT_CANS = ["proposal"];
-const SOFT_PROMPT_PROPUESTA = ["forecast"];
-const GATE_CANS = ["forecast", "forecastcommit"];   // requieren linkCans YA cargado para poder entrar
-const GATE_PROPUESTA = ["forecastcommit"];          // requieren linkPropuesta YA cargado para poder entrar
-
-// ==========================================================================
-// ---- Conexión a Microsoft Graph (MSAL.js) ----
-// Login SSO contra Entra ID (app "CRM Preventas Sunset") + lectura/escritura
-// real de la lista "Oportunidades_Preventas" (sitio VENTAS).
-// Mientras no se hace click en "Conectar a SharePoint", la app sigue 100%
-// en modo prueba con el array `deals` de más abajo (no se toca SharePoint).
-// ==========================================================================
 const MSAL_CONFIG = {
   auth: {
     clientId: "94e140a2-30a6-4fbe-9bdc-a0451ac58c19",
     authority: "https://login.microsoftonline.com/c1c1bce2-497e-4876-a56a-fe4c1e6d5e46",
-    // Solo el origen (sin el nombre del archivo): tiene que coincidir EXACTO con el Redirect URI
-    // registrado en Entra ID ("http://localhost:5173", sin path). Con login por popup, la pestaña
-    // emergente solo necesita llegar a esta URL para que MSAL detecte el login — no hace falta que
-    // haya una página real ahí.
     redirectUri: window.location.origin,
   },
-  cache: {
-    cacheLocation: "sessionStorage",
-    storeAuthStateInCookie: false,
-  },
+  cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false },
 };
 const GRAPH_SCOPES = ["Sites.Selected"];
 const SITE_ID = "sunsettechnology567.sharepoint.com,6a79ba18-8c18-4cb2-8670-f9b4978a9092,e63ee1a3-fcaf-4a3a-b016-845f62f01915";
-const LIST_ID = "ac92e48e-0529-4ac3-91fc-d0eaf212e1e7";
-const LIST_ID_CLIENTES = "7d8a178f-91c7-4088-a89d-4e173faa6d9e"; // lista Clientes_Contactos
+const LIST_ID_CLIENTES = "7d8a178f-91c7-4088-a89d-4e173faa6d9e";
+const LIST_ID_VENDORS = "f88ac83e-7197-4772-a140-14f092ed32c0";
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
-// Valores EXACTOS del choice "Etapa" en SharePoint (confirmados vía REST, 13 ago 2026).
-// Los ids de acá (lead, contactado...) son internos del prototipo — no existen como tales en SharePoint.
-const ETAPA_SP_VALUE = {
-  lead: "Lead/Universe",
-  unqualified: "Unqualified",
-  qualified: "Qualified",
-  proposal: "Proposal",
-  forecast: "Forecast",
-  forecastcommit: "Forecast Commit",
-  won: "Won",
-  lost: "Lost",
-};
-const ETAPA_DESDE_SP = Object.fromEntries(Object.entries(ETAPA_SP_VALUE).map(([id, label]) => [label, id]));
-
-// Nombres internos reales de columnas en "Oportunidades_Preventas" (confirmados vía REST, 13 ago 2026).
-// linkPropuesta y fechaCambioEtapa quedan afuera a propósito: Patricio tiene que crear esas 2 columnas
-// nuevas en SharePoint primero (Link a la propuesta técnica / URL, Fecha de cambio de etapa / DateTime);
-// recién ahí se puede consultar su InternalName real y sumarlas acá — Graph no acepta el nombre visible.
-const CAMPO_SP = {
-  titulo: "Title",
-  cliente: "Cliente",
-  pais: "Pa_x00ed_s",
-  vendedor: "Vendedor_x002f_Responsablecomerc",
-  sucursal: "SucursalSunsetresponsable",
-  valor: "Valorestimado_x0028_USD_x0029_",
-  probabilidad: "Probabilidaddecierre_x0028__x002",
-  accion: "Pr_x00f3_ximaacci_x00f3_n",
-  fecha: "Fechadepr_x00f3_ximaacci_x00f3_n",
-  notas: "Notas_x002f_descripci_x00f3_ndel",
-  linkCans: "LinkCANSTexto",
-  linkPropuesta: "LinkPropuestaTexto",
-  fechaCambioEtapa: "Fecha_x0020_de_x0020_cambio_x002",
-  contactoNombre: "Nombredelcontactoprincipal",
-  contactoCargo: "Cargo",
-  contactoEmail: "Email",
-  contactoTelefono: "Tel_x00e9_fono",
-  vendors: "Vendorsinvolucrados",
-  fechaPrimerContacto: "Fechadeprimercontacto",
-  fechaEstimadaDecision: "Fechaestimadadedecisi_x00f3_n",
-  motivoPerdida: "Motivodep_x00e9_rdida",
-  cansCreado: "CANScreado",                  // solo lectura acá — lo escribe Flujo A, no el CRM
-  fechaCreacionCans: "Fechadecreaci_x00f3_ndelCANS",  // solo lectura acá — lo escribe Flujo A
-  upside: "Upside",
-};
-
-let msalInstance = null;
-let cuentaActiva = null;
-let modoConectado = false;
-let msalReadyPromise = null;  // MSAL v3 exige llamar a initialize() (async) antes de usar cualquier otra API
+let msalInstance = null, cuentaActiva = null, msalReadyPromise = null, modoConectado = false;
+let clientes = [], vendors = [], editandoClienteId = null, editandoVendorId = null;
 
 function initMsal(){
-  // Nunca debe poder tirar abajo el resto de la app: si algo falla acá, el modo prueba
-  // tiene que seguir funcionando igual (solo se pierde la posibilidad de conectar a SharePoint).
   try {
-    if(typeof msal === "undefined"){
-      console.warn("MSAL.js no está disponible. El modo conectado no va a estar disponible; el prototipo sigue funcionando en modo prueba.");
-      return;
-    }
+    if(typeof msal === "undefined"){ console.warn("MSAL no disponible."); return; }
     msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
-    msalReadyPromise = msalInstance.initialize().catch(e => {
-      console.error("No se pudo inicializar MSAL (initialize):", e);
-      msalInstance = null;
-    });
-  } catch (e) {
-    console.error("No se pudo inicializar MSAL:", e);
-    msalInstance = null;
-  }
+    msalReadyPromise = msalInstance.initialize().catch(e => { console.error(e); msalInstance = null; });
+  } catch (e) { console.error(e); msalInstance = null; }
 }
+initMsal();
 
 async function obtenerTokenGraph(){
   if(msalReadyPromise) await msalReadyPromise;
-  if(!msalInstance) throw new Error("MSAL no inicializado (¿CDN bloqueado o falló initialize()?).");
+  if(!msalInstance) throw new Error("MSAL no inicializado.");
   const request = { scopes: GRAPH_SCOPES, account: cuentaActiva };
   try {
-    const resultado = await msalInstance.acquireTokenSilent(request);
-    return resultado.accessToken;
+    const r = await msalInstance.acquireTokenSilent(request);
+    return r.accessToken;
   } catch (e) {
-    const resultado = await msalInstance.acquireTokenPopup(request);
-    return resultado.accessToken;
+    const r = await msalInstance.acquireTokenPopup(request);
+    return r.accessToken;
   }
 }
-
 async function graphFetch(path, opciones = {}){
   const token = await obtenerTokenGraph();
   const resp = await fetch(GRAPH_BASE + path, {
     ...opciones,
-    headers: {
-      "Authorization": "Bearer " + token,
-      "Content-Type": "application/json",
-      ...(opciones.headers || {}),
-    },
+    headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json", ...(opciones.headers || {}) },
   });
-  if(!resp.ok){
-    const texto = await resp.text().catch(() => "");
-    throw new Error(`Graph ${resp.status}: ${texto}`);
-  }
+  if(!resp.ok){ const t = await resp.text().catch(() => ""); throw new Error(`Graph ${resp.status}: ${t}`); }
   if(resp.status === 204) return null;
   return resp.json();
 }
 
-function dealDesdeItemGraph(item){
-  const f = item.fields || {};
-  return {
-    id: item.id,
-    titulo: f[CAMPO_SP.titulo] || "",
-    cliente: f[CAMPO_SP.cliente] || "",
-    pais: f[CAMPO_SP.pais] || "",
-    vendedor: f[CAMPO_SP.vendedor] || "",
-    etapa: ETAPA_DESDE_SP[f.Etapa] || "lead",
-    sucursal: f[CAMPO_SP.sucursal] || "",
-    valor: Number(f[CAMPO_SP.valor]) || 0,
-    probabilidad: Number(f[CAMPO_SP.probabilidad]) || 0,
-    accion: f[CAMPO_SP.accion] || "—",
-    fecha: (f[CAMPO_SP.fecha] || "").slice(0, 10),
-    motivoPerdida: f[CAMPO_SP.motivoPerdida] || "",
-    contactoNombre: f[CAMPO_SP.contactoNombre] || "",
-    contactoCargo: f[CAMPO_SP.contactoCargo] || "",
-    contactoEmail: f[CAMPO_SP.contactoEmail] || "",
-    contactoTelefono: f[CAMPO_SP.contactoTelefono] || "",
-    vendors: Array.isArray(f[CAMPO_SP.vendors]) ? f[CAMPO_SP.vendors] : [],
-    fechaPrimerContacto: (f[CAMPO_SP.fechaPrimerContacto] || "").slice(0, 10),
-    fechaEstimadaDecision: (f[CAMPO_SP.fechaEstimadaDecision] || "").slice(0, 10),
-    notas: f[CAMPO_SP.notas] || "",
-    linkCans: f[CAMPO_SP.linkCans] || "",
-    linkPropuesta: f[CAMPO_SP.linkPropuesta] || "",
-    cansCreado: !!f[CAMPO_SP.cansCreado],
-    fechaCreacionCans: (f[CAMPO_SP.fechaCreacionCans] || "").slice(0, 10),
-    upside: !!f[CAMPO_SP.upside],
-    fechaCambioEtapa: f[CAMPO_SP.fechaCambioEtapa]
-      ? f[CAMPO_SP.fechaCambioEtapa].slice(0, 10)
-      : (item.lastModifiedDateTime ? item.lastModifiedDateTime.slice(0, 10) : hoyISO()),
-  };
+function escapeHtml(s){
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 }
 
-function camposGraphDesdeDeal(datos){
-  const fields = {};
-  if(datos.titulo !== undefined) fields[CAMPO_SP.titulo] = datos.titulo;
-  if(datos.cliente !== undefined) fields[CAMPO_SP.cliente] = datos.cliente;
-  if(datos.pais !== undefined) fields[CAMPO_SP.pais] = datos.pais;
-  if(datos.vendedor !== undefined) fields[CAMPO_SP.vendedor] = datos.vendedor;
-  if(datos.etapa !== undefined) fields.Etapa = ETAPA_SP_VALUE[datos.etapa] || datos.etapa;
-  if(datos.sucursal !== undefined && datos.sucursal) fields[CAMPO_SP.sucursal] = datos.sucursal;
-  if(datos.valor !== undefined) fields[CAMPO_SP.valor] = Number(datos.valor) || 0;
-  // La probabilidad siempre se deriva de la etapa, nunca se manda lo que venga en datos.probabilidad.
-  if(datos.etapa !== undefined) fields[CAMPO_SP.probabilidad] = PROBABILIDAD_POR_ETAPA[datos.etapa] ?? 0;
-  if(datos.upside !== undefined) fields[CAMPO_SP.upside] = !!datos.upside;
-  if(datos.accion !== undefined) fields[CAMPO_SP.accion] = datos.accion;
-  if(datos.fecha) fields[CAMPO_SP.fecha] = datos.fecha + "T00:00:00Z";
-  if(datos.motivoPerdida !== undefined && datos.motivoPerdida) fields[CAMPO_SP.motivoPerdida] = datos.motivoPerdida;
-  if(datos.contactoNombre !== undefined) fields[CAMPO_SP.contactoNombre] = datos.contactoNombre;
-  if(datos.contactoCargo !== undefined) fields[CAMPO_SP.contactoCargo] = datos.contactoCargo;
-  if(datos.contactoEmail !== undefined) fields[CAMPO_SP.contactoEmail] = datos.contactoEmail;
-  if(datos.contactoTelefono !== undefined) fields[CAMPO_SP.contactoTelefono] = datos.contactoTelefono;
-  if(datos.vendors !== undefined && datos.vendors.length > 0) fields[CAMPO_SP.vendors] = datos.vendors;
-  if(datos.fechaPrimerContacto) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto + "T00:00:00Z";
-  if(datos.fechaEstimadaDecision) fields[CAMPO_SP.fechaEstimadaDecision] = datos.fechaEstimadaDecision + "T00:00:00Z";
-  if(datos.notas !== undefined) fields[CAMPO_SP.notas] = datos.notas;
-  if(datos.linkCans !== undefined) fields[CAMPO_SP.linkCans] = datos.linkCans || "";
-  if(datos.linkPropuesta !== undefined) fields[CAMPO_SP.linkPropuesta] = datos.linkPropuesta || "";
-  if(datos.fechaCambioEtapa !== undefined && datos.fechaCambioEtapa){
-    fields[CAMPO_SP.fechaCambioEtapa] = datos.fechaCambioEtapa + "T00:00:00Z";
-  }
-  // CANScreado y Fecha de creación del CANS son de solo lectura para el CRM (los escribe Flujo A) —
-  // deliberadamente no se incluyen acá para no pisar lo que ya haya escrito ese flujo.
-  return fields;
+async function cargarDatos(){
+  const [dc, dv] = await Promise.all([
+    graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items?expand=fields&$top=500`),
+    graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items?expand=fields&$top=500`),
+  ]);
+  clientes = dc.value.map(it => ({
+    id: it.id,
+    empresa: it.fields.Empresa || "",
+    pais: it.fields.Pais || "",
+    nombre: it.fields.NombreContacto || "",
+    cargo: it.fields.Cargo || "",
+    email: it.fields.Email || "",
+    telefono: it.fields.Telefono || "",
+    ubicacion: it.fields.Ubicacion || "",
+    notas: it.fields.Notas || "",
+  }));
+  vendors = dv.value.map(it => ({
+    id: it.id,
+    nombre: it.fields.NombreVendor || "",
+    contacto: it.fields.Contacto || "",
+    email: it.fields.Email || "",
+    telefono: it.fields.Telefono || "",
+    web: it.fields.Web || "",
+    productos: it.fields.Productos || "",
+    descripcion: it.fields.Descripcion || "",
+  }));
 }
 
-async function cargarDealsDesdeGraph(){
-  const data = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/items?expand=fields&$top=500`);
-  deals = (data.value || []).map(dealDesdeItemGraph);
-}
-
-// ---- Base de clientes/contactos (lista Clientes_Contactos) — solo lectura desde el CRM principal,
-// se carga y edita desde clientes-vendors.html. Best-effort: si falla, el CRM sigue funcionando igual.
-let contactosClientes = [];
-async function cargarContactosClientes(){
-  try {
-    const data = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items?expand=fields&$top=1000`);
-    contactosClientes = (data.value || []).map(it => ({
-      empresa: it.fields.Empresa || "",
-      nombre: it.fields.NombreContacto || "",
-      cargo: it.fields.Cargo || "",
-      email: it.fields.Email || "",
-      telefono: it.fields.Telefono || "",
-    }));
-  } catch(e) { console.warn("No se pudo cargar Clientes_Contactos:", e); }
-}
-function actualizarContactosGuardadosUI(){
-  const cliente = document.getElementById("f_cliente").value.trim();
-  const wrap = document.getElementById("wrapContactoGuardado");
-  const sel = document.getElementById("f_contactoGuardado");
-  const opciones = contactosClientes.filter(c => c.empresa.toLowerCase() === cliente.toLowerCase() && c.nombre);
-  if(!cliente || opciones.length === 0){ wrap.style.display = "none"; return; }
-  wrap.style.display = "block";
-  sel.innerHTML = `<option value="">— Elegir de la base de datos —</option>` +
-    opciones.map((c, i) => `<option value="${i}">${escapeHtml(c.nombre)}${c.cargo ? " — " + escapeHtml(c.cargo) : ""}</option>`).join("");
-  sel.onchange = () => {
-    if(sel.value === "") return;
-    const c = opciones[Number(sel.value)];
-    document.getElementById("f_contactoNombre").value = c.nombre;
-    document.getElementById("f_contactoCargo").value = c.cargo;
-    document.getElementById("f_contactoEmail").value = c.email;
-    document.getElementById("f_contactoTelefono").value = c.telefono;
-  };
-}
-document.getElementById("f_cliente").addEventListener("input", actualizarContactosGuardadosUI);
-document.getElementById("f_cliente").addEventListener("blur", actualizarContactosGuardadosUI);
-
-async function crearDealEnGraph(datos){
-  const body = { fields: camposGraphDesdeDeal(datos) };
-  const item = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/items`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-  return item.id;
-}
-
-async function actualizarDealEnGraph(id, datos){
-  const fields = camposGraphDesdeDeal(datos);
-  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/items/${id}/fields`, {
-    method: "PATCH",
-    body: JSON.stringify(fields),
-  });
-}
-
-async function eliminarDealEnGraph(id){
-  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/items/${id}`, { method: "DELETE" });
-}
-
-function mostrarErrorGraph(contexto, error){
-  console.error(contexto, error);
-  alert(`No se pudo guardar en SharePoint (${contexto}). El cambio se deshizo acá; probá de nuevo.\n\nDetalle técnico: ${error.message || error}`);
-}
-
-function activarUIConectado(){
-  const boton = document.getElementById("btnConectar");
-  const estado = document.getElementById("estadoConexion");
-  boton.style.display = "none";
-  estado.style.display = "inline";
-  estado.textContent = `Conectado como ${cuentaActiva.name || cuentaActiva.username}`;
-  document.getElementById("subtitulo").textContent = "Conectado a SharePoint · los cambios se guardan en Oportunidades_Preventas";
-}
-
-async function conectarASharePoint(){
-  const boton = document.getElementById("btnConectar");
-  boton.disabled = true;
-  boton.textContent = "Conectando…";
-  if(msalReadyPromise) await msalReadyPromise;
-  if(!msalInstance){
-    alert("MSAL.js no se pudo inicializar. No se puede conectar a SharePoint ahora.");
-    boton.disabled = false;
-    boton.textContent = "🔌 Conectar a SharePoint";
-    return;
-  }
-  try {
-    const resultado = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
-    cuentaActiva = resultado.account;
-    await cargarDealsDesdeGraph();
-    cargarContactosClientes(); // best-effort, no bloquea el resto de la conexión
-    modoConectado = true;
-    activarUIConectado();
-    renderTablero();
-    poblarSelects();
-  } catch (e) {
-    console.error("Error al conectar con SharePoint", e);
-    alert("No se pudo iniciar sesión o leer la lista de SharePoint. Detalle técnico: " + (e.message || e));
-    boton.disabled = false;
-    boton.textContent = "🔌 Conectar a SharePoint";
-  }
-}
-
-document.getElementById("btnConectar").addEventListener("click", conectarASharePoint);
-
-// ---- Datos de prueba ----
-// Solo se cargan si la URL tiene "?demo=1" (uso interno para probar la interfaz sin conectar a
-// SharePoint). En el uso normal, sin conectar, el tablero arranca vacío — no se muestran acá.
-// fechaCambioEtapa: fecha del último movimiento de etapa (campo interno, no se carga a mano —
-// lo actualiza la propia app cada vez que una tarjeta cambia de columna).
-const DEALS_DEMO = [
-  { id: "1", titulo: "Claro Guatemala - Renovación SBC", cliente: "CLARO", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "proposal", sucursal: "Argentina", valor: 185000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Cliente pidió incluir soporte 24x7 en la propuesta. Confirmar con Operaciones antes de cotizar.", contactoNombre: "Marco Solís", contactoCargo: "Gerente de Redes", contactoEmail: "marco.solis@claro.gt", contactoTelefono: "+502 5555 1234", vendors: ["NG-Voice", "Xius"], fechaPrimerContacto: "2026-07-15", fechaEstimadaDecision: "2026-09-01", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/CLARO/Guatemala/2026/Renovacion-SBC", linkPropuesta: "", cansCreado: true, fechaCreacionCans: "2026-08-10" },
-  { id: "2", titulo: "Telefónica Perú - Ampliación IMS", cliente: "TELEFONICA", pais: "Perú", vendedor: "Gustavo Molina", etapa: "forecastcommit", valor: 340000, accion: "Ajustar condiciones comerciales", fecha: "2026-08-15", fechaCambioEtapa: "2026-07-28", notas: "También están evaluando a un competidor. Prioridad alta, quieren cerrar antes de fin de mes.", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS/Propuesta-Tecnica" },
-  { id: "3", titulo: "Tech Mahindra - Integratel DRA", cliente: "TECH MAHINDRA", pais: "Colombia", vendedor: "Gustavo Guaspari", etapa: "forecast", valor: 96000, accion: "Follow up propuesta", fecha: "2026-08-20", fechaCambioEtapa: "2026-08-05", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA/Propuesta-Tecnica" },
-  { id: "4", titulo: "Entel Chile - Nueva plataforma PCRF", cliente: "ENTEL", pais: "Chile", vendedor: "Gustavo Molina", etapa: "qualified", valor: 210000, accion: "Agendar relevamiento técnico", fecha: "2026-08-25", fechaCambioEtapa: "2026-08-11" },
-  { id: "5", titulo: "Datatronics - Movistar El Salvador SS7", cliente: "DATATRONICS", pais: "El Salvador", vendedor: "Gustavo Guaspari", etapa: "lead", valor: 60000, accion: "Primer contacto", fecha: "2026-08-14", fechaCambioEtapa: "2026-08-12" },
-  { id: "6", titulo: "Claro Argentina - Titan.ium SBC", cliente: "CLARO", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "qualified", valor: 275000, accion: "Definir arquitectura con vendors", fecha: "2026-08-22", fechaCambioEtapa: "2026-08-08" },
-  { id: "7", titulo: "Milicom Honduras - One2many notificaciones", cliente: "MILICOM", pais: "Honduras", vendedor: "Gustavo Guaspari", etapa: "unqualified", valor: 45000, accion: "Confirmar necesidad", fecha: "2026-08-19", fechaCambioEtapa: "2026-08-13" },
-  { id: "8", titulo: "Telecom Argentina - Comarch NMS", cliente: "TELECOM", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "won", valor: 410000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-20", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS/Propuesta-Tecnica" },
-  { id: "9", titulo: "Integratel - XIUS billing", cliente: "INTEGRATEL", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "lost", valor: 78000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-25", motivoPerdida: "Precio" },
-];
-
-let deals = [];
-let nextId = 10;
-let vendorsSeleccionados = [];  // vendors del deal que se está editando/creando, mientras el modal está abierto
-let editandoId = null;
-let etapaOriginal = null;
-let pendingConfirm = null;    // { dealId, etapaDestino } mientras espera confirmación de cierre
-let pendingLink = null;       // { dealId, etapaDestino, tipo: 'cans'|'propuesta' } mientras espera que se pegue un link
-let deshacerStack = [];       // [{ id, etapaAnterior, fechaAnterior }, ...] pila de movimientos recientes, el último al final
-let toastTimeout = null;
-let toastPausado = false;
-const DURACION_TOAST_MS = 10000;
-const ETAPAS_CIERRE = ["won", "lost"]; // requieren confirmación explícita antes de mover
-let vistaActual = "tablero"; // "tablero" | "estadisticas" — qué se muestra en <main>
-
-// ---- Render ----
-function fmtUSD(n){
-  return "USD " + Number(n || 0).toLocaleString("es-AR");
-}
-function fechaVencida(f){
-  if(!f) return false;
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  return new Date(f + "T00:00:00") < hoy;
-}
-function fmtFecha(f){
-  if(!f) return "";
-  const [y,m,d] = f.split("-");
-  return `${d}/${m}/${y}`;
-}
-function hoyISO(){
-  return new Date().toISOString().slice(0, 10);
-}
-function diasEnEtapa(fecha){
-  if(!fecha) return null;
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  const d = new Date(fecha + "T00:00:00");
-  return Math.round((hoy - d) / 86400000);
-}
-function textoDiasEtapa(fecha){
-  const dias = diasEnEtapa(fecha);
-  if(dias === null) return "";
-  if(dias <= 0) return "Hoy";
-  if(dias === 1) return "1 día";
-  return `${dias} días`;
-}
-
-function vendedoresUnicos(){
-  return [...new Set(deals.map(d => d.vendedor))].sort();
-}
-function clientesUnicos(){
-  return [...new Set(deals.map(d => d.cliente))].sort();
-}
-function paisesUnicos(){
-  return [...new Set(deals.map(d => d.pais))].sort();
-}
-
-function poblarSelects(){
-  const poblar = (id, valores, etiquetaTodos) => {
-    const sel = document.getElementById(id);
-    const actual = sel.value;
-    sel.innerHTML = `<option value="">${etiquetaTodos}</option>` +
-      valores.map(v => `<option value="${v}">${v}</option>`).join("");
-    if(valores.includes(actual)) sel.value = actual;
-  };
-  poblar("filtroVendedor", vendedoresUnicos(), "Todos los vendedores");
-  poblar("filtroCliente", clientesUnicos(), "Todos los clientes");
-  poblar("filtroPais", paisesUnicos(), "Todos los países");
-
-  // Datalists del formulario: lista base + valores ad hoc que ya se hayan cargado
-  const poblarDatalist = (id, base, enUso) => {
-    const valores = [...new Set([...base, ...enUso])].sort();
-    document.getElementById(id).innerHTML = valores.map(v => `<option value="${v}"></option>`).join("");
-  };
-  poblarDatalist("dl_clientes", CLIENTES_BASE, clientesUnicos());
-  poblarDatalist("dl_paises", PAISES_BASE, paisesUnicos());
-  poblarDatalist("dl_vendedores", VENDEDORES_BASE, vendedoresUnicos());
-
-  const fE = document.getElementById("f_etapa");
-  fE.innerHTML = ETAPAS.map(e => `<option value="${e.id}">${e.nombre}</option>`).join("");
-
-  // Datalist de Vendors involucrados: sugerencias base + los que ya se hayan escrito ad hoc en algún deal.
-  const vendorsEnUso = [...new Set(deals.flatMap(d => d.vendors || []))];
-  const opcionesVendors = [...new Set([...VENDORS_OPCIONES, ...vendorsEnUso])].sort();
-  document.getElementById("dl_vendors").innerHTML = opcionesVendors.map(v => `<option value="${v}"></option>`).join("");
-
-  // Selects de Motivo de pérdida (form principal + modal de confirmación de cierre).
-  const opcionesMotivo = `<option value="">Elegí un motivo…</option>` +
-    MOTIVO_PERDIDA_OPCIONES.map(m => `<option value="${m}">${m}</option>`).join("");
-  document.getElementById("f_motivoPerdida").innerHTML = opcionesMotivo;
-  document.getElementById("f_motivoPerdidaConfirm").innerHTML = opcionesMotivo;
-}
-
-function pasaFiltros(d, filtros){
-  if(filtros.vendedor && d.vendedor !== filtros.vendedor) return false;
-  if(filtros.cliente && d.cliente !== filtros.cliente) return false;
-  if(filtros.pais && d.pais !== filtros.pais) return false;
-  if(filtros.busqueda){
-    const q = filtros.busqueda.toLowerCase();
-    if(!d.titulo.toLowerCase().includes(q) && !d.cliente.toLowerCase().includes(q)) return false;
-  }
-  return true;
-}
-
-// ---- Vencidos (badge sidebar) + vista de Estadísticas ----
-function actualizarAlertaVencidos(){
-  const el = document.getElementById("alertaVencidos");
-  const vencidos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa) && fechaVencida(d.fecha)).length;
-  if(vencidos > 0){
-    el.style.display = "block";
-    el.textContent = vencidos === 1 ? "⚠ 1 oportunidad vencida" : `⚠ ${vencidos} oportunidades vencidas`;
-  } else {
-    el.style.display = "none";
-  }
-}
-
-function renderEstadisticas(){
-  const cont = document.getElementById("vistaEstadisticas");
-  if(!modoConectado && deals.length === 0){
-    cont.innerHTML = `
-      <div style="padding:60px 20px; text-align:center;">
-        <div style="font-size:14px; color:var(--texto-suave); margin-bottom:10px;">Todavía no te conectaste a SharePoint.</div>
-        <div style="font-size:12.5px; color:#9AA7B2;">Conectate para ver las estadísticas reales del equipo.</div>
-      </div>
-    `;
-    return;
-  }
-
-  const abiertos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
-  const ganados = deals.filter(d => d.etapa === "won");
-  const perdidos = deals.filter(d => d.etapa === "lost");
-  const sumaValor = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0), 0);
-  const cierres = ganados.length + perdidos.length;
-  const tasaConversion = cierres > 0 ? Math.round((ganados.length / cierres) * 100) : null;
-  const vencidos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa) && fechaVencida(d.fecha)).length;
-
-  const filasEtapa = ETAPAS.map(etapa => {
-    const dealsEtapa = deals.filter(d => d.etapa === etapa.id);
-    const dias = dealsEtapa.map(d => diasEnEtapa(d.fechaCambioEtapa)).filter(x => x !== null);
-    const promedioDias = dias.length > 0 ? Math.round(dias.reduce((s, x) => s + x, 0) / dias.length) : null;
-    return `<tr><td>${escapeHtml(etapa.nombre)}</td><td>${dealsEtapa.length}</td><td>${fmtUSD(sumaValor(dealsEtapa))}</td><td>${promedioDias === null ? "—" : promedioDias + " días"}</td></tr>`;
-  }).join("");
-
-  const filasVendedor = vendedoresUnicos().map(v => {
-    const dealsVendedor = deals.filter(d => d.vendedor === v);
-    const abiertosV = dealsVendedor.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
-    const ganadosV = dealsVendedor.filter(d => d.etapa === "won");
-    return `<tr><td>${escapeHtml(v)}</td><td>${abiertosV.length}</td><td>${fmtUSD(sumaValor(abiertosV))}</td><td>${ganadosV.length}</td><td>${fmtUSD(sumaValor(ganadosV))}</td></tr>`;
-  }).join("");
-
-  cont.innerHTML = `
-    <div class="stats-resumen">
-      <div class="stats-card"><div class="etiqueta">Pipeline abierto</div><div class="valor-grande">${abiertos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(abiertos))}</div></div>
-      <div class="stats-card"><div class="etiqueta">Ganadas</div><div class="valor-grande">${ganados.length}</div><div class="etiqueta">${fmtUSD(sumaValor(ganados))}</div></div>
-      <div class="stats-card"><div class="etiqueta">Perdidas</div><div class="valor-grande">${perdidos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(perdidos))}</div></div>
-      <div class="stats-card"><div class="etiqueta">Tasa de conversión</div><div class="valor-grande">${tasaConversion === null ? "—" : tasaConversion + "%"}</div><div class="etiqueta">${cierres} cierre${cierres === 1 ? "" : "s"}</div></div>
-      <div class="stats-card"><div class="etiqueta">Vencidas</div><div class="valor-grande" style="color:var(--rojo);">${vencidos}</div><div class="etiqueta">cierre estimado</div></div>
-    </div>
-    <div>
-      <div class="stats-seccion-titulo">Por etapa</div>
-      <table class="stats-tabla">
-        <thead><tr><th>Etapa</th><th>Cantidad</th><th>Valor total</th><th>Días promedio en la etapa actual</th></tr></thead>
-        <tbody>${filasEtapa}</tbody>
-      </table>
-    </div>
-    <div>
-      <div class="stats-seccion-titulo">Por vendedor</div>
-      <table class="stats-tabla">
-        <thead><tr><th>Vendedor</th><th>Abiertas</th><th>Valor abierto</th><th>Ganadas</th><th>Valor ganado</th></tr></thead>
-        <tbody>${filasVendedor || '<tr><td colspan="5" style="text-align:center;color:var(--texto-suave);">Sin datos</td></tr>'}</tbody>
-      </table>
-    </div>
+function renderClientes(){
+  const filtro = document.getElementById("buscarCliente").value.trim().toLowerCase();
+  const filas = clientes.filter(c => !filtro || (c.empresa+c.nombre).toLowerCase().includes(filtro));
+  document.getElementById("tablaClientes").innerHTML = `
+    <tr><th>Empresa</th><th>País</th><th>Contacto</th><th>Cargo</th><th>Email</th><th>Teléfono</th></tr>
+    ${filas.map(c => `<tr data-id="${c.id}"><td>${escapeHtml(c.empresa)}</td><td>${escapeHtml(c.pais)}</td><td>${escapeHtml(c.nombre)}</td><td>${escapeHtml(c.cargo)}</td><td>${escapeHtml(c.email)}</td><td>${escapeHtml(c.telefono)}</td></tr>`).join("") || `<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
   `;
+  document.querySelectorAll("#tablaClientes tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalCliente(tr.dataset.id)));
 }
-
-function cambiarVista(vista){
-  vistaActual = vista;
-  document.getElementById("navTablero").classList.toggle("activo", vista === "tablero");
-  document.getElementById("navEstadisticas").classList.toggle("activo", vista === "estadisticas");
-  document.getElementById("tablero").style.display = vista === "tablero" ? "" : "none";
-  document.getElementById("resultadosInfo").style.display = vista === "tablero" ? "" : "none";
-  document.getElementById("vistaEstadisticas").style.display = vista === "estadisticas" ? "block" : "none";
-  if(vista === "estadisticas") renderEstadisticas();
-}
-document.getElementById("navTablero").addEventListener("click", () => cambiarVista("tablero"));
-document.getElementById("navEstadisticas").addEventListener("click", () => cambiarVista("estadisticas"));
-
-function renderTablero(){
-  // Estas dos vistas dependen solo de `deals`/`modoConectado`, no de los filtros del tablero —
-  // se recalculan siempre que se llama a renderTablero(), sin importar la rama que siga abajo.
-  actualizarAlertaVencidos();
-  if(vistaActual === "estadisticas") renderEstadisticas();
-
-  const filtros = {
-    busqueda: document.getElementById("buscador").value.trim(),
-    cliente: document.getElementById("filtroCliente").value,
-    pais: document.getElementById("filtroPais").value,
-    vendedor: document.getElementById("filtroVendedor").value,
-  };
-  const tablero = document.getElementById("tablero");
-  tablero.innerHTML = "";
-
-  if(!modoConectado && deals.length === 0){
-    tablero.innerHTML = `
-      <div style="padding:60px 20px; text-align:center; width:100%;">
-        <div style="font-size:14px; color:var(--texto-suave); margin-bottom:10px;">Todavía no te conectaste a SharePoint.</div>
-        <div style="font-size:12.5px; color:#9AA7B2;">Apretá "🔌 Conectar a SharePoint" arriba para ver las oportunidades del equipo.</div>
-      </div>
-    `;
-    document.getElementById("resultadosInfo").textContent = "";
-    return;
-  }
-
-  let totalVisible = 0;
-
-  ETAPAS.forEach(etapa => {
-    const dealsEtapa = deals.filter(d => d.etapa === etapa.id && pasaFiltros(d, filtros));
-    totalVisible += dealsEtapa.length;
-    const totalValorEtapa = dealsEtapa.reduce((suma, d) => suma + (Number(d.valor) || 0), 0);
-
-    const col = document.createElement("div");
-    col.className = "columna" + (etapa.clase ? " " + etapa.clase : "");
-    col.innerHTML = `
-      <div class="col-header">
-        <div class="titulo">
-          <span>${etapa.nombre}</span>
-          <span class="conteo">${dealsEtapa.length}</span>
-        </div>
-        ${dealsEtapa.length > 0 ? `<div class="total-valor">${fmtUSD(totalValorEtapa)}</div>` : ""}
-      </div>
-      <div class="col-body" data-etapa="${etapa.id}"></div>
-    `;
-    tablero.appendChild(col);
-
-    const body = col.querySelector(".col-body");
-
-    if(dealsEtapa.length === 0){
-      body.innerHTML = '<div class="vacio">Sin oportunidades</div>';
-    } else {
-      dealsEtapa.forEach(d => body.appendChild(crearTarjeta(d)));
-    }
-
-    body.addEventListener("dragover", e => { e.preventDefault(); body.classList.add("drag-over"); });
-    body.addEventListener("dragleave", () => body.classList.remove("drag-over"));
-    body.addEventListener("drop", e => {
-      e.preventDefault();
-      body.classList.remove("drag-over");
-      const id = e.dataTransfer.getData("text/plain");
-      const deal = deals.find(x => x.id === id);
-      const etapaDestino = body.dataset.etapa;
-      if(!deal || deal.etapa === etapaDestino) return;
-
-      if(ETAPAS_CIERRE.includes(etapaDestino)){
-        abrirConfirmacionCierre(deal, etapaDestino);
-      } else if(!deal.fecha){
-        abrirBloqueo(`No se puede mover "${deal.titulo}" de etapa sin definir antes la Fecha estimada de cierre. Abrí la tarjeta y completá ese campo primero.`);
-      } else if(GATE_CANS.includes(etapaDestino) && !deal.linkCans){
-        const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
-        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: no tiene un CANS vinculado. Primero pasalo por "5. En preparación de propuesta" para generarlo.`);
-      } else if(GATE_PROPUESTA.includes(etapaDestino) && !deal.linkPropuesta){
-        const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
-        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: no tiene la propuesta técnica vinculada. Primero pasalo por "6. Propuesta enviada" para cargarla.`);
-      } else if(SOFT_PROMPT_CANS.includes(etapaDestino) && !deal.linkCans){
-        abrirPromptLink(deal, etapaDestino, "cans");
-      } else if(SOFT_PROMPT_PROPUESTA.includes(etapaDestino) && !deal.linkPropuesta){
-        abrirPromptLink(deal, etapaDestino, "propuesta");
-      } else {
-        moverDeal(deal, etapaDestino);
-      }
-    });
-  });
-
-  const info = document.getElementById("resultadosInfo");
-  const hayFiltro = filtros.busqueda || filtros.cliente || filtros.pais || filtros.vendedor;
-  info.textContent = hayFiltro
-    ? `Mostrando ${totalVisible} de ${deals.length} oportunidades`
-    : `${deals.length} oportunidades en total`;
-}
-
-function escapeHtml(texto){
-  const div = document.createElement("div");
-  div.textContent = texto || "";
-  return div.innerHTML;
-}
-function esUrlSegura(url){
-  return /^https?:\/\//i.test((url || "").trim());
-}
-
-function crearTarjeta(d){
-  const el = document.createElement("div");
-  el.className = "tarjeta";
-  el.draggable = true;
-  el.dataset.id = d.id;
-
-  const vencida = fechaVencida(d.fecha);
-  el.innerHTML = `
-    <div class="titulo">${escapeHtml(d.titulo)}</div>
-    <div class="cliente">${escapeHtml(d.cliente)} · ${escapeHtml(d.pais)}</div>
-    <div class="fila"><span>Valor</span><span class="valor">${fmtUSD(d.valor)}</span></div>
-    ${d.fecha ? `<div class="fila"><span>Cierre est.</span><span class="${vencida ? "vencida" : ""}">${fmtFecha(d.fecha)} · ${calcularQuarter(d.fecha)}</span></div>` : ""}
-    ${d.upside ? `<div class="fila"><span></span><span style="color:var(--azul-sunset); font-weight:600;">↑ Upside</span></div>` : ""}
-    <div class="fila"><span>En esta etapa</span><span class="dias-etapa">${textoDiasEtapa(d.fechaCambioEtapa)}</span></div>
-    ${d.notas ? `<div class="notas">${escapeHtml(d.notas)}</div>` : ""}
-    <span class="badge-vendedor">${escapeHtml(d.vendedor)}</span>${d.sucursal ? `<span class="badge-sucursal">${escapeHtml(d.sucursal)}</span>` : ""}${d.cansCreado ? `<span class="badge-cans-creado">✓ CANS</span>` : ""}
+function renderVendors(){
+  const filtro = document.getElementById("buscarVendor").value.trim().toLowerCase();
+  const filas = vendors.filter(v => !filtro || v.nombre.toLowerCase().includes(filtro));
+  document.getElementById("tablaVendors").innerHTML = `
+    <tr><th>Nombre</th><th>Contacto</th><th>Email</th><th>Teléfono</th><th>Productos</th></tr>
+    ${filas.map(v => `<tr data-id="${v.id}"><td>${escapeHtml(v.nombre)}</td><td>${escapeHtml(v.contacto)}</td><td>${escapeHtml(v.email)}</td><td>${escapeHtml(v.telefono)}</td><td>${escapeHtml(v.productos)}</td></tr>`).join("") || `<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
   `;
-
-  const documentos = [
-    { url: d.linkCans, texto: "🔗 Ver CANS" },
-    { url: d.linkPropuesta, texto: "📄 Ver propuesta técnica" },
-  ].filter(doc => doc.url && esUrlSegura(doc.url));
-
-  if(documentos.length > 0){
-    const contenedor = document.createElement("div");
-    contenedor.className = "links-doc";
-    documentos.forEach(doc => {
-      const link = document.createElement("a");
-      link.href = doc.url;           // asignado vía DOM, no interpolado en el HTML: evita inyección
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.className = "link-doc";
-      link.textContent = doc.texto;
-      link.addEventListener("click", e => e.stopPropagation()); // no abrir el modal de edición al clickear el link
-      contenedor.appendChild(link);
-    });
-    el.appendChild(contenedor);
-  }
-
-  el.addEventListener("dragstart", e => {
-    e.dataTransfer.setData("text/plain", String(d.id));
-    setTimeout(() => el.classList.add("dragging"), 0);
-  });
-  el.addEventListener("dragend", () => el.classList.remove("dragging"));
-  el.addEventListener("click", () => abrirModal(d.id));
-
-  return el;
+  document.querySelectorAll("#tablaVendors tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalVendor(tr.dataset.id)));
 }
 
-// ---- Cambio de etapa: mover, confirmar cierre, deshacer ----
-function moverDeal(deal, etapaDestino, opciones = {}){
-  const mostrarToast = opciones.mostrarToast !== false;
-  const etapaAnterior = deal.etapa;
-  const fechaAnterior = deal.fechaCambioEtapa;
-
-  deal.etapa = etapaDestino;
-  deal.fechaCambioEtapa = hoyISO();
-  renderTablero();
-
-  if(modoConectado){
-    actualizarDealEnGraph(deal.id, { etapa: etapaDestino, fechaCambioEtapa: deal.fechaCambioEtapa }).catch(e => {
-      deal.etapa = etapaAnterior;
-      deal.fechaCambioEtapa = fechaAnterior;
-      renderTablero();
-      mostrarErrorGraph("mover etapa", e);
-    });
-  }
-
-  if(mostrarToast){
-    mostrarToastDeshacer(deal, etapaAnterior, fechaAnterior);
-  }
+function abrirModalCliente(id){
+  editandoClienteId = id || null;
+  const c = id ? clientes.find(x => x.id === id) : null;
+  document.getElementById("c_empresa").value = c ? c.empresa : "";
+  document.getElementById("c_pais").value = c ? c.pais : "";
+  document.getElementById("c_nombre").value = c ? c.nombre : "";
+  document.getElementById("c_cargo").value = c ? c.cargo : "";
+  document.getElementById("c_email").value = c ? c.email : "";
+  document.getElementById("c_telefono").value = c ? c.telefono : "";
+  document.getElementById("c_ubicacion").value = c ? c.ubicacion : "";
+  document.getElementById("c_notas").value = c ? c.notas : "";
+  document.getElementById("btnEliminarCliente").style.display = c ? "inline-block" : "none";
+  document.getElementById("overlayCliente").classList.add("activo");
+}
+function abrirModalVendor(id){
+  editandoVendorId = id || null;
+  const v = id ? vendors.find(x => x.id === id) : null;
+  document.getElementById("v_nombre").value = v ? v.nombre : "";
+  document.getElementById("v_contacto").value = v ? v.contacto : "";
+  document.getElementById("v_email").value = v ? v.email : "";
+  document.getElementById("v_telefono").value = v ? v.telefono : "";
+  document.getElementById("v_web").value = v ? v.web : "";
+  document.getElementById("v_productos").value = v ? v.productos : "";
+  document.getElementById("v_descripcion").value = v ? v.descripcion : "";
+  document.getElementById("btnEliminarVendor").style.display = v ? "inline-block" : "none";
+  document.getElementById("overlayVendor").classList.add("activo");
 }
 
-function abrirConfirmacionCierre(deal, etapaDestino){
-  const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
-  document.getElementById("confirmTexto").textContent =
-    `¿Confirmás que "${deal.titulo}" pasa a ${nombreEtapa}? Es una etapa de cierre.`;
-  const esPerdido = etapaDestino === "lost";
-  document.getElementById("wrapMotivoPerdidaConfirm").style.display = esPerdido ? "block" : "none";
-  document.getElementById("f_motivoPerdidaConfirm").value = "";
-  pendingConfirm = { dealId: deal.id, etapaDestino };
-  document.getElementById("overlayConfirm").classList.add("activo");
-}
+document.getElementById("btnNuevoCliente").addEventListener("click", () => abrirModalCliente(null));
+document.getElementById("btnNuevoVendor").addEventListener("click", () => abrirModalVendor(null));
+document.getElementById("btnCancelarCliente").addEventListener("click", () => document.getElementById("overlayCliente").classList.remove("activo"));
+document.getElementById("btnCancelarVendor").addEventListener("click", () => document.getElementById("overlayVendor").classList.remove("activo"));
+document.getElementById("buscarCliente").addEventListener("input", renderClientes);
+document.getElementById("buscarVendor").addEventListener("input", renderVendors);
 
-function cerrarConfirmacionCierre(){
-  document.getElementById("overlayConfirm").classList.remove("activo");
-  pendingConfirm = null;
-}
-
-document.getElementById("btnConfirmCancelar").addEventListener("click", () => {
-  cerrarConfirmacionCierre();
-  renderTablero(); // la tarjeta nunca se movió; re-renderiza por prolijidad visual
-});
-document.getElementById("overlayConfirm").addEventListener("click", e => {
-  if(e.target.id === "overlayConfirm"){
-    cerrarConfirmacionCierre();
-    renderTablero();
-  }
-});
-document.getElementById("btnConfirmAceptar").addEventListener("click", () => {
-  if(pendingConfirm){
-    const deal = deals.find(x => x.id === pendingConfirm.dealId);
-    if(deal){
-      if(pendingConfirm.etapaDestino === "lost"){
-        const motivo = document.getElementById("f_motivoPerdidaConfirm").value;
-        if(!motivo){
-          document.getElementById("f_motivoPerdidaConfirm").focus();
-          return; // no se cierra el modal: falta elegir el motivo
-        }
-        deal.motivoPerdida = motivo;
-        if(modoConectado){
-          actualizarDealEnGraph(deal.id, { motivoPerdida: motivo }).catch(e => mostrarErrorGraph("guardar motivo de pérdida", e));
-        }
-      }
-      moverDeal(deal, pendingConfirm.etapaDestino, { mostrarToast: false });
-    }
-  }
-  cerrarConfirmacionCierre();
-});
-
-// ---- Prompt genérico: vincular CANS o propuesta técnica al entrar a la etapa correspondiente ----
-function abrirPromptLink(deal, etapaDestino, tipo){
-  const cfg = LINK_CONFIG[tipo];
-  pendingLink = { dealId: deal.id, etapaDestino, tipo };
-  document.getElementById("linkPromptTitulo").textContent = cfg.titulo;
-  document.getElementById("linkPromptTexto").textContent = cfg.textoPrompt(deal.titulo);
-  document.getElementById("linkPromptLabel").textContent = cfg.label;
-  document.getElementById("f_linkPrompt").placeholder = cfg.placeholder;
-  document.getElementById("f_linkPrompt").value = "";
-  document.getElementById("overlayLink").classList.add("activo");
-}
-
-function cerrarPromptLink(){
-  document.getElementById("overlayLink").classList.remove("activo");
-  pendingLink = null;
-}
-
-function resolverPromptLink(valorLink){
-  if(!pendingLink) return;
-  const deal = deals.find(x => x.id === pendingLink.dealId);
-  const campo = LINK_CONFIG[pendingLink.tipo].campo;
-  if(deal){
-    if(valorLink) deal[campo] = valorLink;
-    moverDeal(deal, pendingLink.etapaDestino);
-    if(modoConectado && valorLink){
-      actualizarDealEnGraph(deal.id, { [campo]: valorLink }).catch(e => mostrarErrorGraph("guardar link", e));
-    }
-  }
-  cerrarPromptLink();
-}
-
-document.getElementById("btnLinkCancelar").addEventListener("click", () => {
-  cerrarPromptLink();
-  renderTablero(); // la tarjeta nunca se movió; re-renderiza por prolijidad visual
-});
-document.getElementById("overlayLink").addEventListener("click", e => {
-  if(e.target.id === "overlayLink"){
-    cerrarPromptLink();
-    renderTablero();
-  }
-});
-document.getElementById("btnLinkOmitir").addEventListener("click", () => {
-  resolverPromptLink("");
-});
-document.getElementById("btnLinkConfirmar").addEventListener("click", () => {
-  const valor = document.getElementById("f_linkPrompt").value.trim();
-  if(!valor){
-    document.getElementById("f_linkPrompt").focus();
-    return;
-  }
-  resolverPromptLink(valor);
-});
-
-// ---- Bloqueo duro: falta un documento requerido para entrar a la etapa destino ----
-function abrirBloqueo(mensaje){
-  document.getElementById("bloqueoTexto").textContent = mensaje;
-  document.getElementById("overlayBloqueo").classList.add("activo");
-}
-document.getElementById("btnBloqueoEntendido").addEventListener("click", () => {
-  document.getElementById("overlayBloqueo").classList.remove("activo");
-  renderTablero(); // la tarjeta nunca se movió; re-renderiza por prolijidad visual
-});
-document.getElementById("overlayBloqueo").addEventListener("click", e => {
-  if(e.target.id === "overlayBloqueo"){
-    document.getElementById("overlayBloqueo").classList.remove("activo");
-    renderTablero();
-  }
-});
-
-function mostrarToastDeshacer(deal, etapaAnterior, fechaAnterior){
-  deshacerStack.push({ id: deal.id, etapaAnterior, fechaAnterior });
-  actualizarTextoToast();
-  document.getElementById("toast").classList.add("visible");
-  reiniciarTimerToast();
-}
-
-function actualizarTextoToast(){
-  const n = deshacerStack.length;
-  const ultimo = deshacerStack[n - 1];
-  const deal = deals.find(x => x.id === ultimo.id);
-  const nombreEtapa = deal ? ETAPAS.find(e => e.id === deal.etapa).nombre : "";
-  const texto = n === 1
-    ? `"${deal ? deal.titulo : ""}" se movió a ${nombreEtapa}.`
-    : `Se movieron ${n} tarjetas recientemente. Último: "${deal ? deal.titulo : ""}" a ${nombreEtapa}.`;
-  document.getElementById("toastTexto").textContent = texto;
-}
-
-function reiniciarTimerToast(){
-  clearTimeout(toastTimeout);
-  if(toastPausado) return;
-  toastTimeout = setTimeout(ocultarToast, DURACION_TOAST_MS);
-}
-
-function ocultarToast(){
-  clearTimeout(toastTimeout);
-  document.getElementById("toast").classList.remove("visible");
-  deshacerStack = [];
-}
-
-document.getElementById("toast").addEventListener("mouseenter", () => {
-  toastPausado = true;
-  clearTimeout(toastTimeout);
-});
-document.getElementById("toast").addEventListener("mouseleave", () => {
-  toastPausado = false;
-  if(deshacerStack.length > 0) reiniciarTimerToast();
-});
-
-document.getElementById("btnDeshacer").addEventListener("click", () => {
-  const ultimo = deshacerStack.pop();
-  if(ultimo){
-    const deal = deals.find(x => x.id === ultimo.id);
-    if(deal){
-      deal.etapa = ultimo.etapaAnterior;
-      deal.fechaCambioEtapa = ultimo.fechaAnterior;
-      renderTablero();
-      if(modoConectado){
-        actualizarDealEnGraph(deal.id, { etapa: ultimo.etapaAnterior, fechaCambioEtapa: deal.fechaCambioEtapa }).catch(e => mostrarErrorGraph("deshacer", e));
-      }
-    }
-  }
-  if(deshacerStack.length > 0){
-    actualizarTextoToast();
-    reiniciarTimerToast();
-  } else {
-    ocultarToast();
-  }
-});
-
-// ---- Modal alta/edición ----
-function abrirModal(id){
-  editandoId = id || null;
-  const overlay = document.getElementById("overlay");
-  const btnEliminar = document.getElementById("btnEliminar");
-
-  if(id){
-    const d = deals.find(x => x.id === id);
-    etapaOriginal = d.etapa;
-    document.getElementById("modalTitulo").textContent = "Editar oportunidad";
-    document.getElementById("f_titulo").value = d.titulo;
-    document.getElementById("f_cliente").value = d.cliente;
-    actualizarContactosGuardadosUI();
-    document.getElementById("f_pais").value = d.pais;
-    document.getElementById("f_vendedor").value = d.vendedor;
-    document.getElementById("f_etapa").value = d.etapa;
-    document.getElementById("f_sucursal").value = d.sucursal || "";
-    document.getElementById("f_valor").value = d.valor;
-    document.getElementById("f_upside").checked = !!d.upside;
-    document.getElementById("f_fecha").value = d.fecha;
-    actualizarProbabilidadUI();
-    actualizarQuarterUI();
-    document.getElementById("f_accion").value = d.accion === "—" ? "" : d.accion;
-    document.getElementById("f_motivoPerdida").value = d.motivoPerdida || "";
-    document.getElementById("f_contactoNombre").value = d.contactoNombre || "";
-    document.getElementById("f_contactoCargo").value = d.contactoCargo || "";
-    document.getElementById("f_contactoEmail").value = d.contactoEmail || "";
-    document.getElementById("f_contactoTelefono").value = d.contactoTelefono || "";
-    vendorsSeleccionados = [...(d.vendors || [])];
-    renderChipsVendors();
-    document.getElementById("f_fechaPrimerContacto").value = d.fechaPrimerContacto || "";
-    document.getElementById("f_fechaEstimadaDecision").value = d.fechaEstimadaDecision || "";
-    document.getElementById("f_notas").value = d.notas || "";
-    document.getElementById("f_linkCans").value = d.linkCans || "";
-    document.getElementById("f_linkPropuesta").value = d.linkPropuesta || "";
-    document.getElementById("wrapCansCreado").style.display = "block";
-    document.getElementById("indicadorCansCreado").textContent = d.cansCreado
-      ? "✓ CANS creado" + (d.fechaCreacionCans ? ` (${fmtFecha(d.fechaCreacionCans)})` : "")
-      : "Todavía no se generó (lo crea Flujo A automáticamente).";
-    btnEliminar.style.display = "inline-block";
-  } else {
-    etapaOriginal = null;
-    document.getElementById("modalTitulo").textContent = "Nueva oportunidad";
-    document.getElementById("form").reset();
-    document.getElementById("f_etapa").value = "lead";
-    document.getElementById("f_upside").checked = false;
-    document.getElementById("wrapCansCreado").style.display = "none";
-    vendorsSeleccionados = [];
-    renderChipsVendors();
-    btnEliminar.style.display = "none";
-    actualizarProbabilidadUI();
-    actualizarQuarterUI();
-  }
-
-  actualizarVisibilidadMotivoPerdida();
-  overlay.classList.add("activo");
-}
-
-// ---- Probabilidad automática por etapa, y Quarter/Año calculados de la Fecha estimada de cierre ----
-function actualizarProbabilidadUI(){
-  const etapa = document.getElementById("f_etapa").value;
-  document.getElementById("f_probabilidad").value = PROBABILIDAD_POR_ETAPA[etapa] ?? "";
-}
-function calcularQuarter(fechaISO){
-  if(!fechaISO) return "";
-  const [anio, mes] = fechaISO.split("-").map(Number);
-  if(!anio || !mes) return "";
-  const q = Math.ceil(mes / 3);
-  return `Q${q} ${anio}`;
-}
-function actualizarQuarterUI(){
-  document.getElementById("f_quarter").value = calcularQuarter(document.getElementById("f_fecha").value);
-}
-document.getElementById("f_etapa").addEventListener("change", actualizarProbabilidadUI);
-document.getElementById("f_fecha").addEventListener("change", actualizarQuarterUI);
-
-// ---- Chips de Vendors involucrados (ad hoc, igual patrón que Cliente/País/Vendedor) ----
-function renderChipsVendors(){
-  const cont = document.getElementById("chipsVendors");
-  cont.innerHTML = vendorsSeleccionados.map(v => `
-    <span class="chip-vendor">${escapeHtml(v)}<button type="button" data-vendor="${escapeHtml(v)}" aria-label="Quitar">×</button></span>
-  `).join("");
-  cont.querySelectorAll("button[data-vendor]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      vendorsSeleccionados = vendorsSeleccionados.filter(v => v !== btn.dataset.vendor);
-      renderChipsVendors();
-    });
-  });
-}
-
-function agregarVendorDesdeInput(){
-  const input = document.getElementById("f_vendorNuevo");
-  const valor = input.value.trim();
-  if(!valor) return;
-  if(!vendorsSeleccionados.includes(valor)) vendorsSeleccionados.push(valor);
-  input.value = "";
-  renderChipsVendors();
-  input.focus();
-}
-
-document.getElementById("btnAgregarVendor").addEventListener("click", agregarVendorDesdeInput);
-document.getElementById("f_vendorNuevo").addEventListener("keydown", e => {
-  if(e.key === "Enter"){
-    e.preventDefault(); // no debe enviar el formulario, solo agregar el chip
-    agregarVendorDesdeInput();
-  }
-});
-
-function actualizarVisibilidadMotivoPerdida(){
-  const esPerdido = document.getElementById("f_etapa").value === "lost";
-  document.getElementById("wrapMotivoPerdida").style.display = esPerdido ? "block" : "none";
-}
-document.getElementById("f_etapa").addEventListener("change", actualizarVisibilidadMotivoPerdida);
-
-function cerrarModal(){
-  document.getElementById("overlay").classList.remove("activo");
-  editandoId = null;
-}
-
-document.getElementById("btnNueva").addEventListener("click", () => abrirModal(null));
-document.getElementById("btnCancelar").addEventListener("click", cerrarModal);
-document.getElementById("overlay").addEventListener("click", e => {
-  if(e.target.id === "overlay") cerrarModal();
-});
-
-document.getElementById("btnEliminar").addEventListener("click", async () => {
-  if(!editandoId || !confirm("¿Eliminar esta oportunidad?")) return;
-  const idAEliminar = editandoId;
-  const respaldo = deals.find(d => d.id === idAEliminar);
-  deals = deals.filter(d => d.id !== idAEliminar);
-  cerrarModal();
-  renderTablero();
-  poblarSelects();
-
-  if(modoConectado){
-    try {
-      await eliminarDealEnGraph(idAEliminar);
-    } catch (e) {
-      if(respaldo) deals.push(respaldo);
-      renderTablero();
-      poblarSelects();
-      mostrarErrorGraph("eliminar", e);
-    }
-  }
-});
-
-document.getElementById("form").addEventListener("submit", async e => {
+document.getElementById("formCliente").addEventListener("submit", async e => {
   e.preventDefault();
-  const datos = {
-    titulo: document.getElementById("f_titulo").value.trim(),
-    cliente: document.getElementById("f_cliente").value.trim(),
-    pais: document.getElementById("f_pais").value.trim(),
-    vendedor: document.getElementById("f_vendedor").value.trim(),
-    etapa: document.getElementById("f_etapa").value,
-    sucursal: document.getElementById("f_sucursal").value,
-    probabilidad: PROBABILIDAD_POR_ETAPA[document.getElementById("f_etapa").value] ?? 0,
-    upside: document.getElementById("f_upside").checked,
-    valor: Number(document.getElementById("f_valor").value) || 0,
-    fecha: document.getElementById("f_fecha").value,
-    accion: document.getElementById("f_accion").value.trim() || "—",
-    motivoPerdida: document.getElementById("f_motivoPerdida").value,
-    contactoNombre: document.getElementById("f_contactoNombre").value.trim(),
-    contactoCargo: document.getElementById("f_contactoCargo").value.trim(),
-    contactoEmail: document.getElementById("f_contactoEmail").value.trim(),
-    contactoTelefono: document.getElementById("f_contactoTelefono").value.trim(),
-    vendors: [...vendorsSeleccionados],
-    fechaPrimerContacto: document.getElementById("f_fechaPrimerContacto").value,
-    fechaEstimadaDecision: document.getElementById("f_fechaEstimadaDecision").value,
-    notas: document.getElementById("f_notas").value.trim(),
-    linkCans: document.getElementById("f_linkCans").value.trim(),
-    linkPropuesta: document.getElementById("f_linkPropuesta").value.trim(),
+  const empresa = document.getElementById("c_empresa").value.trim();
+  const fields = {
+    Title: empresa,
+    Empresa: empresa,
+    Pais: document.getElementById("c_pais").value.trim(),
+    NombreContacto: document.getElementById("c_nombre").value.trim(),
+    Cargo: document.getElementById("c_cargo").value.trim(),
+    Email: document.getElementById("c_email").value.trim(),
+    Telefono: document.getElementById("c_telefono").value.trim(),
+    Ubicacion: document.getElementById("c_ubicacion").value.trim(),
+    Notas: document.getElementById("c_notas").value.trim(),
   };
-
-  // Mismos gates que en el tablero, por si la etapa se cambia acá en vez de con drag&drop.
-  if(!ETAPAS_CIERRE.includes(datos.etapa) && !datos.fecha){
-    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" sin definir la Fecha estimada de cierre.`);
-    return;
-  }
-  if(GATE_CANS.includes(datos.etapa) && !datos.linkCans){
-    const nombreEtapa = ETAPAS.find(x => x.id === datos.etapa).nombre;
-    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta el link al CANS.`);
-    return;
-  }
-  if(GATE_PROPUESTA.includes(datos.etapa) && !datos.linkPropuesta){
-    const nombreEtapa = ETAPAS.find(x => x.id === datos.etapa).nombre;
-    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta el link a la propuesta técnica.`);
-    return;
-  }
-  if(datos.etapa === "lost" && !datos.motivoPerdida){
-    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" como Perdida todavía: falta elegir el motivo de pérdida.`);
-    return;
-  }
-
-  // Se calcula ANTES de guardar: comparar contra listas ya actualizadas con este mismo deal
-  // haría que nunca se detecte un valor como "nuevo".
-  const conocidosAntesDeGuardar = {
-    clientes: new Set([...CLIENTES_BASE, ...clientesUnicos()]),
-    paises: new Set([...PAISES_BASE, ...paisesUnicos()]),
-    vendedores: new Set([...VENDEDORES_BASE, ...vendedoresUnicos()]),
-    vendors: new Set([...VENDORS_OPCIONES, ...deals.flatMap(x => x.vendors || [])]),
-  };
-
-  const btnGuardar = e.target.querySelector('button[type="submit"]');
-  btnGuardar.disabled = true;
-
   try {
-    // Primero se promueven los valores nuevos (Cliente/País/Vendedor/Vendors) al choice maestro
-    // de SharePoint, y se espera a que termine — si se guarda el deal antes, Graph valida esos
-    // campos contra su lista de choices vieja (todavía sin el valor nuevo) y rechaza el guardado.
-    await promoverValoresNuevosSiCorresponde(datos, conocidosAntesDeGuardar);
-    if(editandoId){
-      const d = deals.find(x => x.id === editandoId);
-      const cambioEtapa = datos.etapa !== etapaOriginal;
-      Object.assign(d, datos);
-      if(cambioEtapa) d.fechaCambioEtapa = hoyISO();
-      if(modoConectado){
-        await actualizarDealEnGraph(d.id, cambioEtapa ? { ...datos, fechaCambioEtapa: d.fechaCambioEtapa } : datos);
-      }
+    if(editandoClienteId){
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items/${editandoClienteId}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
     } else {
-      const fechaCambioEtapa = hoyISO();
-      if(modoConectado){
-        const idNuevo = await crearDealEnGraph({ ...datos, fechaCambioEtapa });
-        deals.push({ id: idNuevo, ...datos, fechaCambioEtapa });
-      } else {
-        deals.push({ id: String(nextId++), ...datos, fechaCambioEtapa });
-      }
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items`, { method: "POST", body: JSON.stringify({ fields }) });
     }
-    cerrarModal();
-    renderTablero();
-    poblarSelects();
-  } catch (e2) {
-    mostrarErrorGraph("guardar oportunidad", e2);
-  } finally {
-    btnGuardar.disabled = false;
-  }
+    document.getElementById("overlayCliente").classList.remove("activo");
+    await cargarDatos(); renderClientes();
+  } catch(err){ alert("No se pudo guardar: " + err.message); }
 });
-
-document.getElementById("filtroVendedor").addEventListener("change", renderTablero);
-document.getElementById("filtroCliente").addEventListener("change", renderTablero);
-document.getElementById("filtroPais").addEventListener("change", renderTablero);
-document.getElementById("buscador").addEventListener("input", renderTablero);
-
-document.getElementById("btnLimpiar").addEventListener("click", () => {
-  document.getElementById("buscador").value = "";
-  document.getElementById("filtroCliente").value = "";
-  document.getElementById("filtroPais").value = "";
-  document.getElementById("filtroVendedor").value = "";
-  renderTablero();
-});
-
-// ---- Exportar a CSV (respeta los filtros actuales del tablero) ----
-function escaparCsv(valor){
-  const s = String(valor === undefined || valor === null ? "" : valor);
-  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function exportarCSV(){
-  const filtros = {
-    busqueda: document.getElementById("buscador").value.trim(),
-    cliente: document.getElementById("filtroCliente").value,
-    pais: document.getElementById("filtroPais").value,
-    vendedor: document.getElementById("filtroVendedor").value,
+document.getElementById("formVendor").addEventListener("submit", async e => {
+  e.preventDefault();
+  const nombre = document.getElementById("v_nombre").value.trim();
+  const fields = {
+    Title: nombre,
+    NombreVendor: nombre,
+    Contacto: document.getElementById("v_contacto").value.trim(),
+    Email: document.getElementById("v_email").value.trim(),
+    Telefono: document.getElementById("v_telefono").value.trim(),
+    Web: document.getElementById("v_web").value.trim(),
+    Productos: document.getElementById("v_productos").value.trim(),
+    Descripcion: document.getElementById("v_descripcion").value.trim(),
   };
-  const filas = deals.filter(d => pasaFiltros(d, filtros));
-  const columnas = [
-    ["Título", d => d.titulo],
-    ["Cliente", d => d.cliente],
-    ["País", d => d.pais],
-    ["Vendedor", d => d.vendedor],
-    ["Etapa", d => { const e = ETAPAS.find(x => x.id === d.etapa); return e ? e.nombre : d.etapa; }],
-    ["Sucursal", d => d.sucursal || ""],
-    ["Valor estimado (USD)", d => d.valor || 0],
-    ["Probabilidad (%)", d => d.probabilidad || ""],
-    ["Próxima acción", d => d.accion === "—" ? "" : d.accion],
-    ["Fecha estimada de cierre", d => d.fecha ? fmtFecha(d.fecha) : ""],
-    ["Quarter", d => calcularQuarter(d.fecha)],
-    ["Upside", d => d.upside ? "Sí" : "No"],
-    ["Días en etapa actual", d => { const n = diasEnEtapa(d.fechaCambioEtapa); return n === null ? "" : n; }],
-    ["Vendors involucrados", d => (d.vendors || []).join("; ")],
-    ["Motivo de pérdida", d => d.motivoPerdida || ""],
-    ["CANS creado", d => d.cansCreado ? "Sí" : "No"],
-  ];
-  const encabezado = columnas.map(c => escaparCsv(c[0])).join(",");
-  const filasCsv = filas.map(d => columnas.map(c => escaparCsv(c[1](d))).join(","));
-  const contenido = "﻿" + [encabezado, ...filasCsv].join("\r\n"); // BOM: Excel abre bien los acentos
-  const blob = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `oportunidades_${hoyISO()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-document.getElementById("btnExportarCsv").addEventListener("click", exportarCSV);
-
-// ---- Auto-promoción de valores nuevos (Cliente/País/Vendedor/Vendors) al choice maestro de SharePoint ----
-// Best-effort: si falla (por ejemplo, el permiso del sitio para esta app es "write" y hace falta
-// "manage" para editar la definición de una columna), no bloquea ni revierte el guardado del deal —
-// solo se pierde que el valor nuevo quede como sugerencia para el resto del equipo en SharePoint.
-let columnasGraphCache = null;
-async function obtenerColumnasGraph(){
-  if(!columnasGraphCache){
-    const data = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/columns?$select=id,name`);
-    columnasGraphCache = {};
-    (data.value || []).forEach(c => { columnasGraphCache[c.name] = c.id; });
-  }
-  return columnasGraphCache;
-}
-
-async function promoverValorNuevoAChoice(nombreInterno, valorNuevo){
-  if(!valorNuevo) return;
   try {
-    const columnas = await obtenerColumnasGraph();
-    const columnaId = columnas[nombreInterno];
-    if(!columnaId) return;
-    const columna = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/columns/${columnaId}`);
-    const choicesActuales = columna.choice && columna.choice.choices;
-    if(!Array.isArray(choicesActuales) || choicesActuales.includes(valorNuevo)) return;
-    await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/columns/${columnaId}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        choice: {
-          choices: [...choicesActuales, valorNuevo],
-          displayAs: columna.choice.displayAs,
-          allowTextEntry: columna.choice.allowTextEntry,
-        },
-      }),
-    });
-  } catch (e) {
-    console.warn(`No se pudo agregar "${valorNuevo}" al choice maestro de "${nombreInterno}" en SharePoint (¿falta el permiso "manage" en Sites.Selected para esta app?):`, e);
-  }
-}
-
-async function promoverValoresNuevosSiCorresponde(datos, conocidos){
-  if(!modoConectado) return;
-  const tareas = [];
-  if(datos.cliente && !conocidos.clientes.has(datos.cliente)) tareas.push(promoverValorNuevoAChoice(CAMPO_SP.cliente, datos.cliente));
-  if(datos.pais && !conocidos.paises.has(datos.pais)) tareas.push(promoverValorNuevoAChoice(CAMPO_SP.pais, datos.pais));
-  if(datos.vendedor && !conocidos.vendedores.has(datos.vendedor)) tareas.push(promoverValorNuevoAChoice(CAMPO_SP.vendedor, datos.vendedor));
-  (datos.vendors || []).forEach(v => {
-    if(v && !conocidos.vendors.has(v)) tareas.push(promoverValorNuevoAChoice(CAMPO_SP.vendors, v));
-  });
-  // Se espera a que termine ANTES de guardar el deal: si no, Graph valida el campo contra
-  // su lista de choices vieja (todavía sin el valor nuevo) y rechaza el guardado con 400,
-  // aunque el valor termine escribiéndose igual por detrás. Cada promoción ya tiene su propio
-  // try/catch adentro (best-effort real), así que esto nunca bloquea el guardado si falla.
-  await Promise.all(tareas);
-}
-
-// ---- Init ----
-// No se renderiza nada (más allá del "Cargando…" que ya está en el HTML) hasta saber si hay
-// una sesión de SharePoint cacheada o no — así se evita el parpadeo de mostrar primero los
-// datos de ejemplo y después reemplazarlos por los reales (o al revés).
-async function iniciarApp(){
-  initMsal();
-  if(msalReadyPromise) await msalReadyPromise;
-  if(msalInstance){
-    const cuentas = msalInstance.getAllAccounts();
-    if(cuentas.length > 0){
-      cuentaActiva = cuentas[0];
-      try {
-        await cargarDealsDesdeGraph();
-        cargarContactosClientes(); // best-effort, no bloquea el resto de la conexión
-        modoConectado = true;
-        activarUIConectado();
-      } catch (e) {
-        console.warn("No se pudo reconectar automáticamente (hace falta click en 'Conectar a SharePoint'):", e);
-        cuentaActiva = null;
-        modoConectado = false;
-      }
+    if(editandoVendorId){
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items/${editandoVendorId}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
+    } else {
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items`, { method: "POST", body: JSON.stringify({ fields }) });
     }
-  }
-  // Datos de ejemplo solo si se pide explícitamente con ?demo=1 en la URL (uso interno para
-  // probar la interfaz sin conectar a SharePoint). En el uso normal, sin conectar, arranca vacío.
-  if(!modoConectado && new URLSearchParams(window.location.search).get("demo") === "1"){
-    deals = DEALS_DEMO;
-  }
-  poblarSelects();
-  renderTablero();
-}
-iniciarApp();
-</script>
+    document.getElementById("overlayVendor").classList.remove("activo");
+    await cargarDatos(); renderVendors();
+  } catch(err){ alert("No se pudo guardar: " + err.message); }
+});
+document.getElementById("btnEliminarCliente").addEventListener("click", async () => {
+  if(!editandoClienteId || !confirm("¿Eliminar este contacto?")) return;
+  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items/${editandoClienteId}`, { method: "DELETE" });
+  document.getElementById("overlayCliente").classList.remove("activo");
+  await cargarDatos(); renderClientes();
+});
+document.getElementById("btnEliminarVendor").addEventListener("click", async () => {
+  if(!editandoVendorId || !confirm("¿Eliminar este vendor?")) return;
+  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items/${editandoVendorId}`, { method: "DELETE" });
+  document.getElementById("overlayVendor").classList.remove("activo");
+  await cargarDatos(); renderVendors();
+});
 
+document.getElementById("tabClientes").addEventListener("click", () => {
+  document.getElementById("tabClientes").classList.add("activo");
+  document.getElementById("tabVendors").classList.remove("activo");
+  document.getElementById("vistaClientes").style.display = "block";
+  document.getElementById("vistaVendors").style.display = "none";
+});
+document.getElementById("tabVendors").addEventListener("click", () => {
+  document.getElementById("tabVendors").classList.add("activo");
+  document.getElementById("tabClientes").classList.remove("activo");
+  document.getElementById("vistaVendors").style.display = "block";
+  document.getElementById("vistaClientes").style.display = "none";
+});
+
+async function conectar(){
+  if(msalReadyPromise) await msalReadyPromise;
+  if(!msalInstance){ alert("MSAL no se pudo inicializar."); return; }
+  try {
+    const cuentas = msalInstance.getAllAccounts();
+    if(cuentas.length){
+      cuentaActiva = cuentas[0];
+    } else {
+      const r = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
+      cuentaActiva = r.account;
+    }
+    modoConectado = true;
+    document.getElementById("estadoConexion").textContent = "Conectado como " + cuentaActiva.name;
+    document.getElementById("btnConectar").style.display = "none";
+    document.getElementById("subtitulo").textContent = "Los cambios se guardan en Clientes_Contactos y Vendors_Info.";
+    await cargarDatos();
+    renderClientes(); renderVendors();
+  } catch(e){ alert("No se pudo conectar: " + (e.message || e)); }
+}
+document.getElementById("btnConectar").addEventListener("click", conectar);
+
+(async () => {
+  if(msalReadyPromise) await msalReadyPromise;
+  if(msalInstance && msalInstance.getAllAccounts().length){ conectar(); }
+})();
+</script>
 </body>
 </html>
