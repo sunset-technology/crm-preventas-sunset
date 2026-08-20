@@ -708,8 +708,8 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           </select>
         </div>
         <div class="campo">
-          <label>Probabilidad de cierre (%)</label>
-          <input type="number" id="f_probabilidad" min="0" max="100" step="5" placeholder="0-100">
+          <label>Probabilidad de cierre (%) <span style="font-weight:400;">(automática según etapa)</span></label>
+          <input type="number" id="f_probabilidad" min="0" max="100" readonly disabled>
         </div>
       </div>
       <div class="fila2">
@@ -718,8 +718,21 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           <input type="number" id="f_valor" min="0" step="any" placeholder="0">
         </div>
         <div class="campo">
-          <label>Fecha de próxima acción</label>
+          <label>Upside</label>
+          <label style="display:flex; align-items:center; gap:6px; font-weight:400; padding-top:6px;">
+            <input type="checkbox" id="f_upside" style="width:auto;">
+            Elegible para cerrar en un Q anterior al previsto
+          </label>
+        </div>
+      </div>
+      <div class="fila2">
+        <div class="campo">
+          <label>Fecha estimada de cierre</label>
           <input type="date" id="f_fecha">
+        </div>
+        <div class="campo">
+          <label>Quarter / Año</label>
+          <input type="text" id="f_quarter" readonly disabled placeholder="Se calcula solo">
         </div>
       </div>
       <div class="campo">
@@ -780,11 +793,11 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
       <div class="seccion-titulo">Documentos</div>
       <div class="campo">
-        <label>Link al CANS / carpeta del proyecto <span style="font-weight:400;">(opcional — se pide al llegar a "En preparación de propuesta")</span></label>
+        <label>Link al CANS / carpeta del proyecto <span style="font-weight:400;">(opcional — se pide al llegar a "Proposal")</span></label>
         <input type="text" id="f_linkCans" placeholder="https://sunsettechnology567.sharepoint.com/...">
       </div>
       <div class="campo">
-        <label>Link a la propuesta técnica <span style="font-weight:400;">(opcional — se pide al llegar a "Propuesta enviada")</span></label>
+        <label>Link a la propuesta técnica <span style="font-weight:400;">(opcional — se pide al llegar a "Forecast")</span></label>
         <input type="text" id="f_linkPropuesta" placeholder="https://sunsettechnology567.sharepoint.com/...">
       </div>
       <div class="campo" id="wrapCansCreado" style="display:none;">
@@ -854,16 +867,20 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 <script>
 // ---- Config de etapas (igual a CRM_Preventas_Definicion_Conceptual_v2.docx) ----
 const ETAPAS = [
-  { id: "lead", nombre: "1. Lead" },
-  { id: "contactado", nombre: "2. Contactado" },
-  { id: "calificado", nombre: "3. Calificado" },
-  { id: "relevamiento", nombre: "4. Relevamiento / Diseño" },
-  { id: "preparacion", nombre: "5. En preparación de propuesta" },
-  { id: "enviada", nombre: "6. Propuesta enviada" },
-  { id: "negociacion", nombre: "7. Negociación" },
-  { id: "ganado", nombre: "8. Ganado", clase: "won" },
-  { id: "perdido", nombre: "9. Perdido / Descartado", clase: "lost" },
+  { id: "lead", nombre: "1. Lead/Universe" },
+  { id: "unqualified", nombre: "2. Unqualified" },
+  { id: "qualified", nombre: "3. Qualified" },
+  { id: "proposal", nombre: "4. Proposal" },
+  { id: "forecast", nombre: "5. Forecast" },
+  { id: "forecastcommit", nombre: "6. Forecast Commit" },
+  { id: "won", nombre: "7. Won", clase: "won" },
+  { id: "lost", nombre: "8. Lost", clase: "lost" },
 ];
+// % de Probabilidad de cierre, automático según la etapa (no editable a mano).
+const PROBABILIDAD_POR_ETAPA = {
+  lead: 5, unqualified: 15, qualified: 30, proposal: 50,
+  forecast: 70, forecastcommit: 90, won: 100, lost: 0,
+};
 
 // ---- Listas base (de TablasDimensiones del CANS) ----
 // Sirven como sugerencias de partida; Cliente, País y Vendedor son "ad hoc":
@@ -897,10 +914,10 @@ const LINK_CONFIG = {
     textoPrompt: titulo => `Antes de marcar "${titulo}" como enviada, pegá el link a la propuesta técnica (carpeta distinta a la del CANS).`,
   },
 };
-const SOFT_PROMPT_CANS = ["preparacion"];
-const SOFT_PROMPT_PROPUESTA = ["enviada"];
-const GATE_CANS = ["enviada", "negociacion"];       // requieren linkCans YA cargado para poder entrar
-const GATE_PROPUESTA = ["negociacion"];             // requieren linkPropuesta YA cargado para poder entrar
+const SOFT_PROMPT_CANS = ["proposal"];
+const SOFT_PROMPT_PROPUESTA = ["forecast"];
+const GATE_CANS = ["forecast", "forecastcommit"];   // requieren linkCans YA cargado para poder entrar
+const GATE_PROPUESTA = ["forecastcommit"];          // requieren linkPropuesta YA cargado para poder entrar
 
 // ==========================================================================
 // ---- Conexión a Microsoft Graph (MSAL.js) ----
@@ -932,15 +949,14 @@ const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 // Valores EXACTOS del choice "Etapa" en SharePoint (confirmados vía REST, 13 ago 2026).
 // Los ids de acá (lead, contactado...) son internos del prototipo — no existen como tales en SharePoint.
 const ETAPA_SP_VALUE = {
-  lead: "Lead",
-  contactado: "Contactado",
-  calificado: "Calificado",
-  relevamiento: "Relevamiento / Diseño de solución",
-  preparacion: "En preparación de propuesta",
-  enviada: "Propuesta enviada",
-  negociacion: "Negociación",
-  ganado: "Ganado",
-  perdido: "Perdido / Descartado",
+  lead: "Lead/Universe",
+  unqualified: "Unqualified",
+  qualified: "Qualified",
+  proposal: "Proposal",
+  forecast: "Forecast",
+  forecastcommit: "Forecast Commit",
+  won: "Won",
+  lost: "Lost",
 };
 const ETAPA_DESDE_SP = Object.fromEntries(Object.entries(ETAPA_SP_VALUE).map(([id, label]) => [label, id]));
 
@@ -972,6 +988,7 @@ const CAMPO_SP = {
   motivoPerdida: "Motivodep_x00e9_rdida",
   cansCreado: "CANScreado",                  // solo lectura acá — lo escribe Flujo A, no el CRM
   fechaCreacionCans: "Fechadecreaci_x00f3_ndelCANS",  // solo lectura acá — lo escribe Flujo A
+  upside: "Upside",
 };
 
 let msalInstance = null;
@@ -1056,6 +1073,7 @@ function dealDesdeItemGraph(item){
     linkPropuesta: f[CAMPO_SP.linkPropuesta] || "",
     cansCreado: !!f[CAMPO_SP.cansCreado],
     fechaCreacionCans: (f[CAMPO_SP.fechaCreacionCans] || "").slice(0, 10),
+    upside: !!f[CAMPO_SP.upside],
     fechaCambioEtapa: f[CAMPO_SP.fechaCambioEtapa]
       ? f[CAMPO_SP.fechaCambioEtapa].slice(0, 10)
       : (item.lastModifiedDateTime ? item.lastModifiedDateTime.slice(0, 10) : hoyISO()),
@@ -1071,7 +1089,9 @@ function camposGraphDesdeDeal(datos){
   if(datos.etapa !== undefined) fields.Etapa = ETAPA_SP_VALUE[datos.etapa] || datos.etapa;
   if(datos.sucursal !== undefined && datos.sucursal) fields[CAMPO_SP.sucursal] = datos.sucursal;
   if(datos.valor !== undefined) fields[CAMPO_SP.valor] = Number(datos.valor) || 0;
-  if(datos.probabilidad !== undefined) fields[CAMPO_SP.probabilidad] = Number(datos.probabilidad) || 0;
+  // La probabilidad siempre se deriva de la etapa, nunca se manda lo que venga en datos.probabilidad.
+  if(datos.etapa !== undefined) fields[CAMPO_SP.probabilidad] = PROBABILIDAD_POR_ETAPA[datos.etapa] ?? 0;
+  if(datos.upside !== undefined) fields[CAMPO_SP.upside] = !!datos.upside;
   if(datos.accion !== undefined) fields[CAMPO_SP.accion] = datos.accion;
   if(datos.fecha) fields[CAMPO_SP.fecha] = datos.fecha + "T00:00:00Z";
   if(datos.motivoPerdida !== undefined && datos.motivoPerdida) fields[CAMPO_SP.motivoPerdida] = datos.motivoPerdida;
@@ -1168,15 +1188,15 @@ document.getElementById("btnConectar").addEventListener("click", conectarAShareP
 // fechaCambioEtapa: fecha del último movimiento de etapa (campo interno, no se carga a mano —
 // lo actualiza la propia app cada vez que una tarjeta cambia de columna).
 const DEALS_DEMO = [
-  { id: "1", titulo: "Claro Guatemala - Renovación SBC", cliente: "CLARO", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "preparacion", sucursal: "Argentina", probabilidad: 60, valor: 185000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Cliente pidió incluir soporte 24x7 en la propuesta. Confirmar con Operaciones antes de cotizar.", contactoNombre: "Marco Solís", contactoCargo: "Gerente de Redes", contactoEmail: "marco.solis@claro.gt", contactoTelefono: "+502 5555 1234", vendors: ["NG-Voice", "Xius"], fechaPrimerContacto: "2026-07-15", fechaEstimadaDecision: "2026-09-01", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/CLARO/Guatemala/2026/Renovacion-SBC", linkPropuesta: "", cansCreado: true, fechaCreacionCans: "2026-08-10" },
-  { id: "2", titulo: "Telefónica Perú - Ampliación IMS", cliente: "TELEFONICA", pais: "Perú", vendedor: "Gustavo Molina", etapa: "negociacion", valor: 340000, accion: "Ajustar condiciones comerciales", fecha: "2026-08-15", fechaCambioEtapa: "2026-07-28", notas: "También están evaluando a un competidor. Prioridad alta, quieren cerrar antes de fin de mes.", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS/Propuesta-Tecnica" },
-  { id: "3", titulo: "Tech Mahindra - Integratel DRA", cliente: "TECH MAHINDRA", pais: "Colombia", vendedor: "Gustavo Guaspari", etapa: "enviada", valor: 96000, accion: "Follow up propuesta", fecha: "2026-08-20", fechaCambioEtapa: "2026-08-05", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA/Propuesta-Tecnica" },
-  { id: "4", titulo: "Entel Chile - Nueva plataforma PCRF", cliente: "ENTEL", pais: "Chile", vendedor: "Gustavo Molina", etapa: "calificado", valor: 210000, accion: "Agendar relevamiento técnico", fecha: "2026-08-25", fechaCambioEtapa: "2026-08-11" },
+  { id: "1", titulo: "Claro Guatemala - Renovación SBC", cliente: "CLARO", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "proposal", sucursal: "Argentina", valor: 185000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Cliente pidió incluir soporte 24x7 en la propuesta. Confirmar con Operaciones antes de cotizar.", contactoNombre: "Marco Solís", contactoCargo: "Gerente de Redes", contactoEmail: "marco.solis@claro.gt", contactoTelefono: "+502 5555 1234", vendors: ["NG-Voice", "Xius"], fechaPrimerContacto: "2026-07-15", fechaEstimadaDecision: "2026-09-01", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/CLARO/Guatemala/2026/Renovacion-SBC", linkPropuesta: "", cansCreado: true, fechaCreacionCans: "2026-08-10" },
+  { id: "2", titulo: "Telefónica Perú - Ampliación IMS", cliente: "TELEFONICA", pais: "Perú", vendedor: "Gustavo Molina", etapa: "forecastcommit", valor: 340000, accion: "Ajustar condiciones comerciales", fecha: "2026-08-15", fechaCambioEtapa: "2026-07-28", notas: "También están evaluando a un competidor. Prioridad alta, quieren cerrar antes de fin de mes.", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS/Propuesta-Tecnica" },
+  { id: "3", titulo: "Tech Mahindra - Integratel DRA", cliente: "TECH MAHINDRA", pais: "Colombia", vendedor: "Gustavo Guaspari", etapa: "forecast", valor: 96000, accion: "Follow up propuesta", fecha: "2026-08-20", fechaCambioEtapa: "2026-08-05", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA/Propuesta-Tecnica" },
+  { id: "4", titulo: "Entel Chile - Nueva plataforma PCRF", cliente: "ENTEL", pais: "Chile", vendedor: "Gustavo Molina", etapa: "qualified", valor: 210000, accion: "Agendar relevamiento técnico", fecha: "2026-08-25", fechaCambioEtapa: "2026-08-11" },
   { id: "5", titulo: "Datatronics - Movistar El Salvador SS7", cliente: "DATATRONICS", pais: "El Salvador", vendedor: "Gustavo Guaspari", etapa: "lead", valor: 60000, accion: "Primer contacto", fecha: "2026-08-14", fechaCambioEtapa: "2026-08-12" },
-  { id: "6", titulo: "Claro Argentina - Titan.ium SBC", cliente: "CLARO", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "relevamiento", valor: 275000, accion: "Definir arquitectura con vendors", fecha: "2026-08-22", fechaCambioEtapa: "2026-08-08" },
-  { id: "7", titulo: "Milicom Honduras - One2many notificaciones", cliente: "MILICOM", pais: "Honduras", vendedor: "Gustavo Guaspari", etapa: "contactado", valor: 45000, accion: "Confirmar necesidad", fecha: "2026-08-19", fechaCambioEtapa: "2026-08-13" },
-  { id: "8", titulo: "Telecom Argentina - Comarch NMS", cliente: "TELECOM", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "ganado", valor: 410000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-20", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS/Propuesta-Tecnica" },
-  { id: "9", titulo: "Integratel - XIUS billing", cliente: "INTEGRATEL", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "perdido", valor: 78000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-25", motivoPerdida: "Precio" },
+  { id: "6", titulo: "Claro Argentina - Titan.ium SBC", cliente: "CLARO", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "qualified", valor: 275000, accion: "Definir arquitectura con vendors", fecha: "2026-08-22", fechaCambioEtapa: "2026-08-08" },
+  { id: "7", titulo: "Milicom Honduras - One2many notificaciones", cliente: "MILICOM", pais: "Honduras", vendedor: "Gustavo Guaspari", etapa: "unqualified", valor: 45000, accion: "Confirmar necesidad", fecha: "2026-08-19", fechaCambioEtapa: "2026-08-13" },
+  { id: "8", titulo: "Telecom Argentina - Comarch NMS", cliente: "TELECOM", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "won", valor: 410000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-20", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS/Propuesta-Tecnica" },
+  { id: "9", titulo: "Integratel - XIUS billing", cliente: "INTEGRATEL", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "lost", valor: 78000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-25", motivoPerdida: "Precio" },
 ];
 
 let deals = [];
@@ -1190,7 +1210,7 @@ let deshacerStack = [];       // [{ id, etapaAnterior, fechaAnterior }, ...] pil
 let toastTimeout = null;
 let toastPausado = false;
 const DURACION_TOAST_MS = 10000;
-const ETAPAS_CIERRE = ["ganado", "perdido"]; // requieren confirmación explícita antes de mover
+const ETAPAS_CIERRE = ["won", "lost"]; // requieren confirmación explícita antes de mover
 let vistaActual = "tablero"; // "tablero" | "estadisticas" — qué se muestra en <main>
 
 // ---- Render ----
@@ -1306,8 +1326,8 @@ function renderEstadisticas(){
   }
 
   const abiertos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
-  const ganados = deals.filter(d => d.etapa === "ganado");
-  const perdidos = deals.filter(d => d.etapa === "perdido");
+  const ganados = deals.filter(d => d.etapa === "won");
+  const perdidos = deals.filter(d => d.etapa === "lost");
   const sumaValor = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0), 0);
   const cierres = ganados.length + perdidos.length;
   const tasaConversion = cierres > 0 ? Math.round((ganados.length / cierres) * 100) : null;
@@ -1323,7 +1343,7 @@ function renderEstadisticas(){
   const filasVendedor = vendedoresUnicos().map(v => {
     const dealsVendedor = deals.filter(d => d.vendedor === v);
     const abiertosV = dealsVendedor.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
-    const ganadosV = dealsVendedor.filter(d => d.etapa === "ganado");
+    const ganadosV = dealsVendedor.filter(d => d.etapa === "won");
     return `<tr><td>${escapeHtml(v)}</td><td>${abiertosV.length}</td><td>${fmtUSD(sumaValor(abiertosV))}</td><td>${ganadosV.length}</td><td>${fmtUSD(sumaValor(ganadosV))}</td></tr>`;
   }).join("");
 
@@ -1333,7 +1353,7 @@ function renderEstadisticas(){
       <div class="stats-card"><div class="etiqueta">Ganadas</div><div class="valor-grande">${ganados.length}</div><div class="etiqueta">${fmtUSD(sumaValor(ganados))}</div></div>
       <div class="stats-card"><div class="etiqueta">Perdidas</div><div class="valor-grande">${perdidos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(perdidos))}</div></div>
       <div class="stats-card"><div class="etiqueta">Tasa de conversión</div><div class="valor-grande">${tasaConversion === null ? "—" : tasaConversion + "%"}</div><div class="etiqueta">${cierres} cierre${cierres === 1 ? "" : "s"}</div></div>
-      <div class="stats-card"><div class="etiqueta">Vencidas</div><div class="valor-grande" style="color:var(--rojo);">${vencidos}</div><div class="etiqueta">próxima acción</div></div>
+      <div class="stats-card"><div class="etiqueta">Vencidas</div><div class="valor-grande" style="color:var(--rojo);">${vencidos}</div><div class="etiqueta">cierre estimado</div></div>
     </div>
     <div>
       <div class="stats-seccion-titulo">Por etapa</div>
@@ -1432,7 +1452,7 @@ function renderTablero(){
       if(ETAPAS_CIERRE.includes(etapaDestino)){
         abrirConfirmacionCierre(deal, etapaDestino);
       } else if(!deal.fecha){
-        abrirBloqueo(`No se puede mover "${deal.titulo}" de etapa sin definir antes la Fecha de próxima acción. Abrí la tarjeta y completá ese campo primero.`);
+        abrirBloqueo(`No se puede mover "${deal.titulo}" de etapa sin definir antes la Fecha estimada de cierre. Abrí la tarjeta y completá ese campo primero.`);
       } else if(GATE_CANS.includes(etapaDestino) && !deal.linkCans){
         const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
         abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: no tiene un CANS vinculado. Primero pasalo por "5. En preparación de propuesta" para generarlo.`);
@@ -1476,7 +1496,8 @@ function crearTarjeta(d){
     <div class="titulo">${escapeHtml(d.titulo)}</div>
     <div class="cliente">${escapeHtml(d.cliente)} · ${escapeHtml(d.pais)}</div>
     <div class="fila"><span>Valor</span><span class="valor">${fmtUSD(d.valor)}</span></div>
-    ${d.fecha ? `<div class="fila"><span>Próx. acción</span><span class="${vencida ? "vencida" : ""}">${fmtFecha(d.fecha)}</span></div>` : ""}
+    ${d.fecha ? `<div class="fila"><span>Cierre est.</span><span class="${vencida ? "vencida" : ""}">${fmtFecha(d.fecha)} · ${calcularQuarter(d.fecha)}</span></div>` : ""}
+    ${d.upside ? `<div class="fila"><span></span><span style="color:var(--azul-sunset); font-weight:600;">↑ Upside</span></div>` : ""}
     <div class="fila"><span>En esta etapa</span><span class="dias-etapa">${textoDiasEtapa(d.fechaCambioEtapa)}</span></div>
     ${d.notas ? `<div class="notas">${escapeHtml(d.notas)}</div>` : ""}
     <span class="badge-vendedor">${escapeHtml(d.vendedor)}</span>${d.sucursal ? `<span class="badge-sucursal">${escapeHtml(d.sucursal)}</span>` : ""}${d.cansCreado ? `<span class="badge-cans-creado">✓ CANS</span>` : ""}
@@ -1541,7 +1562,7 @@ function abrirConfirmacionCierre(deal, etapaDestino){
   const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
   document.getElementById("confirmTexto").textContent =
     `¿Confirmás que "${deal.titulo}" pasa a ${nombreEtapa}? Es una etapa de cierre.`;
-  const esPerdido = etapaDestino === "perdido";
+  const esPerdido = etapaDestino === "lost";
   document.getElementById("wrapMotivoPerdidaConfirm").style.display = esPerdido ? "block" : "none";
   document.getElementById("f_motivoPerdidaConfirm").value = "";
   pendingConfirm = { dealId: deal.id, etapaDestino };
@@ -1567,7 +1588,7 @@ document.getElementById("btnConfirmAceptar").addEventListener("click", () => {
   if(pendingConfirm){
     const deal = deals.find(x => x.id === pendingConfirm.dealId);
     if(deal){
-      if(pendingConfirm.etapaDestino === "perdido"){
+      if(pendingConfirm.etapaDestino === "lost"){
         const motivo = document.getElementById("f_motivoPerdidaConfirm").value;
         if(!motivo){
           document.getElementById("f_motivoPerdidaConfirm").focus();
@@ -1729,9 +1750,11 @@ function abrirModal(id){
     document.getElementById("f_vendedor").value = d.vendedor;
     document.getElementById("f_etapa").value = d.etapa;
     document.getElementById("f_sucursal").value = d.sucursal || "";
-    document.getElementById("f_probabilidad").value = d.probabilidad || "";
     document.getElementById("f_valor").value = d.valor;
+    document.getElementById("f_upside").checked = !!d.upside;
     document.getElementById("f_fecha").value = d.fecha;
+    actualizarProbabilidadUI();
+    actualizarQuarterUI();
     document.getElementById("f_accion").value = d.accion === "—" ? "" : d.accion;
     document.getElementById("f_motivoPerdida").value = d.motivoPerdida || "";
     document.getElementById("f_contactoNombre").value = d.contactoNombre || "";
@@ -1755,15 +1778,36 @@ function abrirModal(id){
     document.getElementById("modalTitulo").textContent = "Nueva oportunidad";
     document.getElementById("form").reset();
     document.getElementById("f_etapa").value = "lead";
+    document.getElementById("f_upside").checked = false;
     document.getElementById("wrapCansCreado").style.display = "none";
     vendorsSeleccionados = [];
     renderChipsVendors();
     btnEliminar.style.display = "none";
+    actualizarProbabilidadUI();
+    actualizarQuarterUI();
   }
 
   actualizarVisibilidadMotivoPerdida();
   overlay.classList.add("activo");
 }
+
+// ---- Probabilidad automática por etapa, y Quarter/Año calculados de la Fecha estimada de cierre ----
+function actualizarProbabilidadUI(){
+  const etapa = document.getElementById("f_etapa").value;
+  document.getElementById("f_probabilidad").value = PROBABILIDAD_POR_ETAPA[etapa] ?? "";
+}
+function calcularQuarter(fechaISO){
+  if(!fechaISO) return "";
+  const [anio, mes] = fechaISO.split("-").map(Number);
+  if(!anio || !mes) return "";
+  const q = Math.ceil(mes / 3);
+  return `Q${q} ${anio}`;
+}
+function actualizarQuarterUI(){
+  document.getElementById("f_quarter").value = calcularQuarter(document.getElementById("f_fecha").value);
+}
+document.getElementById("f_etapa").addEventListener("change", actualizarProbabilidadUI);
+document.getElementById("f_fecha").addEventListener("change", actualizarQuarterUI);
 
 // ---- Chips de Vendors involucrados (ad hoc, igual patrón que Cliente/País/Vendedor) ----
 function renderChipsVendors(){
@@ -1798,7 +1842,7 @@ document.getElementById("f_vendorNuevo").addEventListener("keydown", e => {
 });
 
 function actualizarVisibilidadMotivoPerdida(){
-  const esPerdido = document.getElementById("f_etapa").value === "perdido";
+  const esPerdido = document.getElementById("f_etapa").value === "lost";
   document.getElementById("wrapMotivoPerdida").style.display = esPerdido ? "block" : "none";
 }
 document.getElementById("f_etapa").addEventListener("change", actualizarVisibilidadMotivoPerdida);
@@ -1844,7 +1888,8 @@ document.getElementById("form").addEventListener("submit", async e => {
     vendedor: document.getElementById("f_vendedor").value.trim(),
     etapa: document.getElementById("f_etapa").value,
     sucursal: document.getElementById("f_sucursal").value,
-    probabilidad: Number(document.getElementById("f_probabilidad").value) || 0,
+    probabilidad: PROBABILIDAD_POR_ETAPA[document.getElementById("f_etapa").value] ?? 0,
+    upside: document.getElementById("f_upside").checked,
     valor: Number(document.getElementById("f_valor").value) || 0,
     fecha: document.getElementById("f_fecha").value,
     accion: document.getElementById("f_accion").value.trim() || "—",
@@ -1863,7 +1908,7 @@ document.getElementById("form").addEventListener("submit", async e => {
 
   // Mismos gates que en el tablero, por si la etapa se cambia acá en vez de con drag&drop.
   if(!ETAPAS_CIERRE.includes(datos.etapa) && !datos.fecha){
-    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" sin definir la Fecha de próxima acción.`);
+    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" sin definir la Fecha estimada de cierre.`);
     return;
   }
   if(GATE_CANS.includes(datos.etapa) && !datos.linkCans){
@@ -1876,7 +1921,7 @@ document.getElementById("form").addEventListener("submit", async e => {
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta el link a la propuesta técnica.`);
     return;
   }
-  if(datos.etapa === "perdido" && !datos.motivoPerdida){
+  if(datos.etapa === "lost" && !datos.motivoPerdida){
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" como Perdida todavía: falta elegir el motivo de pérdida.`);
     return;
   }
@@ -1894,6 +1939,10 @@ document.getElementById("form").addEventListener("submit", async e => {
   btnGuardar.disabled = true;
 
   try {
+    // Primero se promueven los valores nuevos (Cliente/País/Vendedor/Vendors) al choice maestro
+    // de SharePoint, y se espera a que termine — si se guarda el deal antes, Graph valida esos
+    // campos contra su lista de choices vieja (todavía sin el valor nuevo) y rechaza el guardado.
+    await promoverValoresNuevosSiCorresponde(datos, conocidosAntesDeGuardar);
     if(editandoId){
       const d = deals.find(x => x.id === editandoId);
       const cambioEtapa = datos.etapa !== etapaOriginal;
@@ -1911,7 +1960,6 @@ document.getElementById("form").addEventListener("submit", async e => {
         deals.push({ id: String(nextId++), ...datos, fechaCambioEtapa });
       }
     }
-    promoverValoresNuevosSiCorresponde(datos, conocidosAntesDeGuardar); // best-effort, no se espera
     cerrarModal();
     renderTablero();
     poblarSelects();
@@ -1959,7 +2007,9 @@ function exportarCSV(){
     ["Valor estimado (USD)", d => d.valor || 0],
     ["Probabilidad (%)", d => d.probabilidad || ""],
     ["Próxima acción", d => d.accion === "—" ? "" : d.accion],
-    ["Fecha próxima acción", d => d.fecha ? fmtFecha(d.fecha) : ""],
+    ["Fecha estimada de cierre", d => d.fecha ? fmtFecha(d.fecha) : ""],
+    ["Quarter", d => calcularQuarter(d.fecha)],
+    ["Upside", d => d.upside ? "Sí" : "No"],
     ["Días en etapa actual", d => { const n = diasEnEtapa(d.fechaCambioEtapa); return n === null ? "" : n; }],
     ["Vendors involucrados", d => (d.vendors || []).join("; ")],
     ["Motivo de pérdida", d => d.motivoPerdida || ""],
@@ -2018,14 +2068,20 @@ async function promoverValorNuevoAChoice(nombreInterno, valorNuevo){
   }
 }
 
-function promoverValoresNuevosSiCorresponde(datos, conocidos){
+async function promoverValoresNuevosSiCorresponde(datos, conocidos){
   if(!modoConectado) return;
-  if(datos.cliente && !conocidos.clientes.has(datos.cliente)) promoverValorNuevoAChoice(CAMPO_SP.cliente, datos.cliente);
-  if(datos.pais && !conocidos.paises.has(datos.pais)) promoverValorNuevoAChoice(CAMPO_SP.pais, datos.pais);
-  if(datos.vendedor && !conocidos.vendedores.has(datos.vendedor)) promoverValorNuevoAChoice(CAMPO_SP.vendedor, datos.vendedor);
+  const tareas = [];
+  if(datos.cliente && !conocidos.clientes.has(datos.cliente)) tareas.push(promoverValorNuevoAChoice(CAMPO_SP.cliente, datos.cliente));
+  if(datos.pais && !conocidos.paises.has(datos.pais)) tareas.push(promoverValorNuevoAChoice(CAMPO_SP.pais, datos.pais));
+  if(datos.vendedor && !conocidos.vendedores.has(datos.vendedor)) tareas.push(promoverValorNuevoAChoice(CAMPO_SP.vendedor, datos.vendedor));
   (datos.vendors || []).forEach(v => {
-    if(v && !conocidos.vendors.has(v)) promoverValorNuevoAChoice(CAMPO_SP.vendors, v);
+    if(v && !conocidos.vendors.has(v)) tareas.push(promoverValorNuevoAChoice(CAMPO_SP.vendors, v));
   });
+  // Se espera a que termine ANTES de guardar el deal: si no, Graph valida el campo contra
+  // su lista de choices vieja (todavía sin el valor nuevo) y rechaza el guardado con 400,
+  // aunque el valor termine escribiéndose igual por detrás. Cada promoción ya tiene su propio
+  // try/catch adentro (best-effort real), así que esto nunca bloquea el guardado si falla.
+  await Promise.all(tareas);
 }
 
 // ---- Init ----
