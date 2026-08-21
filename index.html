@@ -678,13 +678,11 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
       <div class="fila2">
         <div class="campo">
           <label>Cliente</label>
-          <input type="text" id="f_cliente" list="dl_clientes" required placeholder="Elegí uno o escribí uno nuevo" autocomplete="off">
-          <datalist id="dl_clientes"></datalist>
+          <select id="f_cliente" required><option value="">Elegí un cliente…</option></select>
         </div>
         <div class="campo">
           <label>País</label>
-          <input type="text" id="f_pais" list="dl_paises" required placeholder="Elegí uno o escribí uno nuevo" autocomplete="off">
-          <datalist id="dl_paises"></datalist>
+          <select id="f_pais" required><option value="">Elegí un país…</option></select>
         </div>
       </div>
       <div class="fila2">
@@ -1157,8 +1155,7 @@ function actualizarContactosGuardadosUI(){
     document.getElementById("f_contactoTelefono").value = c.telefono;
   };
 }
-document.getElementById("f_cliente").addEventListener("input", actualizarContactosGuardadosUI);
-document.getElementById("f_cliente").addEventListener("blur", actualizarContactosGuardadosUI);
+document.getElementById("f_cliente").addEventListener("change", actualizarContactosGuardadosUI);
 
 async function crearDealEnGraph(datos){
   const body = { fields: camposGraphDesdeDeal(datos) };
@@ -1210,7 +1207,7 @@ async function conectarASharePoint(){
     const resultado = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
     cuentaActiva = resultado.account;
     await cargarDealsDesdeGraph();
-    cargarContactosClientes(); // best-effort, no bloquea el resto de la conexión
+    cargarContactosClientes().then(poblarSelects); // best-effort, no bloquea el resto de la conexión
     modoConectado = true;
     activarUIConectado();
     renderTablero();
@@ -1309,13 +1306,25 @@ function poblarSelects(){
   poblar("filtroCliente", clientesUnicos(), "Todos los clientes");
   poblar("filtroPais", paisesUnicos(), "Todos los países");
 
-  // Datalists del formulario: lista base + valores ad hoc que ya se hayan cargado
+  // Cliente y País son selects cerrados (a pedido de Patricio, para evitar que cada comercial
+  // cargue el mismo cliente con mayúsculas/minúsculas o espacios distintos). Las opciones nuevas
+  // se agregan desde clientes-vendors.html (empresas de Clientes_Contactos), no escribiendo acá.
+  const poblarSelectCerrado = (id, base, enUso) => {
+    const sel = document.getElementById(id);
+    const actual = sel.value;
+    const valores = [...new Set([...base, ...enUso])].sort();
+    sel.innerHTML = sel.querySelector("option").outerHTML + valores.map(v => `<option value="${v}">${v}</option>`).join("");
+    if(valores.includes(actual)) sel.value = actual;
+  };
+  const empresasClientes = contactosClientes.map(c => c.empresa).filter(Boolean);
+  poblarSelectCerrado("f_cliente", [...CLIENTES_BASE, ...empresasClientes], clientesUnicos());
+  poblarSelectCerrado("f_pais", PAISES_BASE, paisesUnicos());
+
+  // Vendedor y Vendors siguen siendo ad hoc (se pueden escribir nuevos directo acá).
   const poblarDatalist = (id, base, enUso) => {
     const valores = [...new Set([...base, ...enUso])].sort();
     document.getElementById(id).innerHTML = valores.map(v => `<option value="${v}"></option>`).join("");
   };
-  poblarDatalist("dl_clientes", CLIENTES_BASE, clientesUnicos());
-  poblarDatalist("dl_paises", PAISES_BASE, paisesUnicos());
   poblarDatalist("dl_vendedores", VENDEDORES_BASE, vendedoresUnicos());
 
   const fE = document.getElementById("f_etapa");
@@ -2141,7 +2150,7 @@ async function iniciarApp(){
       cuentaActiva = cuentas[0];
       try {
         await cargarDealsDesdeGraph();
-        cargarContactosClientes(); // best-effort, no bloquea el resto de la conexión
+        cargarContactosClientes().then(poblarSelects); // best-effort, no bloquea el resto de la conexión
         modoConectado = true;
         activarUIConectado();
       } catch (e) {
