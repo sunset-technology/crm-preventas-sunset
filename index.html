@@ -841,10 +841,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           <button type="button" class="btn-secundario" id="btnAgregarVendor">+ Agregar</button>
         </div>
       </div>
-      <div class="campo" id="wrapContactoProveedorGuardado" style="display:none;">
-        <label>Contacto guardado de este proveedor</label>
-        <select id="f_contactoProveedorGuardado"><option value="">— Elegir de la base de datos —</option></select>
-      </div>
+      <div id="wrapContactosProveedor" style="display:none;"></div>
       <div class="fila2">
         <div class="campo">
           <label>Contacto del proveedor</label>
@@ -1260,20 +1257,28 @@ async function cargarBasesMaestras(){
       cargo: it.fields.Cargo || "",
       email: it.fields.Email || "",
       telefono: it.fields.Telefono || "",
+      pais: it.fields.Pais || "",
     }));
     contactosClientes = todosContactos.filter(c => c.tipo === "Cliente");
     contactosProveedor = todosContactos.filter(c => c.tipo === "Proveedor");
   } catch(e) { console.warn("No se pudieron cargar Clientes/Proveedores/Contactos:", e); }
 }
+// Filtra por Empresa Y País: un mismo cliente (ej. "CLARO") puede tener contactos en varios países,
+// y mezclarlos todos en una sola lista larga no sirve — solo interesan los del país de este deal.
+// Los contactos sin País cargado se muestran igual (no se pierden por no estar "tageados" todavía).
 function actualizarContactosGuardadosUI(){
   const cliente = document.getElementById("f_cliente").value.trim();
+  const pais = document.getElementById("f_pais").value.trim();
   const wrap = document.getElementById("wrapContactoGuardado");
   const sel = document.getElementById("f_contactoGuardado");
-  const opciones = contactosClientes.filter(c => c.empresa.toLowerCase() === cliente.toLowerCase() && c.nombre);
+  const opciones = contactosClientes.filter(c =>
+    c.empresa.toLowerCase() === cliente.toLowerCase() && c.nombre &&
+    (!pais || !c.pais || c.pais.toLowerCase() === pais.toLowerCase())
+  );
   if(!cliente || opciones.length === 0){ wrap.style.display = "none"; return; }
   wrap.style.display = "block";
   sel.innerHTML = `<option value="">— Elegir de la base de datos —</option>` +
-    opciones.map((c, i) => `<option value="${i}">${escapeHtml(c.nombre)}${c.cargo ? " — " + escapeHtml(c.cargo) : ""}</option>`).join("");
+    opciones.map((c, i) => `<option value="${i}">${escapeHtml(c.nombre)}${c.cargo ? " — " + escapeHtml(c.cargo) : ""}${c.pais ? " (" + escapeHtml(c.pais) + ")" : ""}</option>`).join("");
   sel.onchange = () => {
     if(sel.value === "") return;
     const c = opciones[Number(sel.value)];
@@ -1284,29 +1289,41 @@ function actualizarContactosGuardadosUI(){
   };
 }
 document.getElementById("f_cliente").addEventListener("change", actualizarContactosGuardadosUI);
+document.getElementById("f_pais").addEventListener("change", actualizarContactosGuardadosUI);
 
 // Contacto de proveedor guardado en el deal — a diferencia de "Proveedores involucrados" (que sigue
 // siendo solo un array de nombres), este contacto puntual SÍ se guarda en el deal (campos
-// f_contactoProveedor*). El desplegable junta los contactos de TODOS los proveedores elegidos en
-// "Proveedores involucrados", identificando a qué empresa pertenece cada uno.
+// f_contactoProveedor*, un solo contacto compartido). Un desplegable POR CADA proveedor elegido
+// (no uno combinado) para no mezclar contactos de empresas distintas en una sola lista larga —
+// mismo criterio que el filtro por País del contacto de Cliente. Elegir cualquiera de ellos llena
+// los mismos 4 campos (el último que se elija es el que queda guardado).
 function actualizarContactoProveedorGuardadoUI(){
-  const wrap = document.getElementById("wrapContactoProveedorGuardado");
-  const sel = document.getElementById("f_contactoProveedorGuardado");
-  const opciones = vendorsSeleccionados.flatMap(nombre =>
-    contactosProveedor.filter(c => c.empresa.toLowerCase() === nombre.toLowerCase() && c.nombre)
-  );
-  if(vendorsSeleccionados.length === 0 || opciones.length === 0){ wrap.style.display = "none"; return; }
+  const wrap = document.getElementById("wrapContactosProveedor");
+  const bloques = vendorsSeleccionados
+    .map(nombre => ({ nombre, opciones: contactosProveedor.filter(c => c.empresa.toLowerCase() === nombre.toLowerCase() && c.nombre) }))
+    .filter(b => b.opciones.length > 0);
+  if(bloques.length === 0){ wrap.style.display = "none"; wrap.innerHTML = ""; return; }
   wrap.style.display = "block";
-  sel.innerHTML = `<option value="">— Elegir de la base de datos —</option>` +
-    opciones.map((c, i) => `<option value="${i}">${escapeHtml(c.nombre)}${c.cargo ? " — " + escapeHtml(c.cargo) : ""} (${escapeHtml(c.empresa)})</option>`).join("");
-  sel.onchange = () => {
-    if(sel.value === "") return;
-    const c = opciones[Number(sel.value)];
-    document.getElementById("f_contactoProveedorNombre").value = c.nombre;
-    document.getElementById("f_contactoProveedorCargo").value = c.cargo;
-    document.getElementById("f_contactoProveedorEmail").value = c.email;
-    document.getElementById("f_contactoProveedorTelefono").value = c.telefono;
-  };
+  wrap.innerHTML = bloques.map((b, bi) => `
+    <div class="campo">
+      <label>Contacto guardado de ${escapeHtml(b.nombre)}</label>
+      <select data-bloque="${bi}">
+        <option value="">— Elegir de la base de datos —</option>
+        ${b.opciones.map((c, i) => `<option value="${i}">${escapeHtml(c.nombre)}${c.cargo ? " — " + escapeHtml(c.cargo) : ""}</option>`).join("")}
+      </select>
+    </div>
+  `).join("");
+  wrap.querySelectorAll("select[data-bloque]").forEach(sel => {
+    const b = bloques[Number(sel.dataset.bloque)];
+    sel.onchange = () => {
+      if(sel.value === "") return;
+      const c = b.opciones[Number(sel.value)];
+      document.getElementById("f_contactoProveedorNombre").value = c.nombre;
+      document.getElementById("f_contactoProveedorCargo").value = c.cargo;
+      document.getElementById("f_contactoProveedorEmail").value = c.email;
+      document.getElementById("f_contactoProveedorTelefono").value = c.telefono;
+    };
+  });
 }
 
 async function crearDealEnGraph(datos){
@@ -2037,8 +2054,8 @@ function abrirModal(id){
     document.getElementById("modalTitulo").textContent = "Editar oportunidad";
     document.getElementById("f_titulo").value = d.titulo;
     document.getElementById("f_cliente").value = d.cliente;
-    actualizarContactosGuardadosUI();
     document.getElementById("f_pais").value = d.pais;
+    actualizarContactosGuardadosUI(); // depende de f_cliente Y f_pais, tienen que estar seteados antes
     document.getElementById("f_vendedor").value = d.vendedor;
     document.getElementById("f_etapa").value = d.etapa;
     document.getElementById("f_sucursal").value = d.sucursal || "";
