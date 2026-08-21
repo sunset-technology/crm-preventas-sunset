@@ -638,7 +638,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     </select>
     <button class="btn-limpiar" id="btnLimpiar" type="button">Limpiar filtros</button>
     <button class="btn-limpiar" id="btnExportarCsv" type="button">⬇️ Exportar CSV</button>
-    <a href="./clientes-vendors.html" target="_blank" class="btn-limpiar" style="display:block; text-align:center; text-decoration:none;">📇 Clientes / Vendors</a>
+    <a href="./clientes-vendors.html" class="btn-limpiar" style="display:block; text-align:center; text-decoration:none;">📇 Clientes / Vendors</a>
     <div class="alerta-vencidos" id="alertaVencidos" style="display:none;"></div>
     <div style="flex:1;"></div>
     <button class="btn-nueva" id="btnNueva">+ Nueva oportunidad</button>
@@ -743,7 +743,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
         <select id="f_motivoPerdida"></select>
       </div>
 
-      <div class="seccion-titulo">Datos de contacto <span style="font-weight:400;"><a href="./clientes-vendors.html" target="_blank">gestionar clientes/contactos ↗</a></span></div>
+      <div class="seccion-titulo">Datos de contacto <span style="font-weight:400;"><a href="./clientes-vendors.html">gestionar clientes/contactos ↗</a></span></div>
       <div class="campo" id="wrapContactoGuardado" style="display:none;">
         <label>Contacto guardado de este cliente</label>
         <select id="f_contactoGuardado"><option value="">— Elegir de la base de datos —</option></select>
@@ -920,7 +920,7 @@ const LINK_CONFIG = {
 const SOFT_PROMPT_CANS = ["proposal"];
 const SOFT_PROMPT_PROPUESTA = ["forecast"];
 const GATE_CANS = ["forecast", "forecastcommit"];   // requieren linkCans YA cargado para poder entrar
-const GATE_PROPUESTA = ["forecastcommit"];          // requieren linkPropuesta YA cargado para poder entrar
+const GATE_PROPUESTA = [];                          // link a la propuesta técnica: opcional, no bloquea el avance de etapa (a pedido de Patricio, 20 ago 2026)
 
 // ==========================================================================
 // ---- Conexión a Microsoft Graph (MSAL.js) ----
