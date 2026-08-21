@@ -840,7 +840,30 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           <select id="f_vendorNuevo"><option value="">Elegí un proveedor…</option></select>
           <button type="button" class="btn-secundario" id="btnAgregarVendor">+ Agregar</button>
         </div>
-        <div id="infoContactoVendor" style="font-size:12.5px; color:var(--texto-suave); margin-top:6px;"></div>
+      </div>
+      <div class="campo" id="wrapContactoProveedorGuardado" style="display:none;">
+        <label>Contacto guardado de este proveedor</label>
+        <select id="f_contactoProveedorGuardado"><option value="">— Elegir de la base de datos —</option></select>
+      </div>
+      <div class="fila2">
+        <div class="campo">
+          <label>Contacto del proveedor</label>
+          <input type="text" id="f_contactoProveedorNombre" placeholder="Ej: Stefan Weber">
+        </div>
+        <div class="campo">
+          <label>Cargo</label>
+          <input type="text" id="f_contactoProveedorCargo">
+        </div>
+      </div>
+      <div class="fila2">
+        <div class="campo">
+          <label>Email</label>
+          <input type="email" id="f_contactoProveedorEmail">
+        </div>
+        <div class="campo">
+          <label>Teléfono</label>
+          <input type="text" id="f_contactoProveedorTelefono">
+        </div>
       </div>
       <div class="campo">
         <label>Fecha de primer contacto</label>
@@ -1046,6 +1069,12 @@ const CAMPO_SP = {
   contactoCargo: "Cargo",
   contactoEmail: "Email",
   contactoTelefono: "Tel_x00e9_fono",
+  // Contacto de proveedor guardado en el deal (21 ago 2026) — columnas nuevas, creadas sin acentos
+  // en el nombre a propósito para que el InternalName de Graph sea igual al DisplayName.
+  contactoProveedorNombre: "ContactoProveedorNombre",
+  contactoProveedorCargo: "ContactoProveedorCargo",
+  contactoProveedorEmail: "ContactoProveedorEmail",
+  contactoProveedorTelefono: "ContactoProveedorTelefono",
   vendors: "Vendorsinvolucrados",
   fechaPrimerContacto: "Fechadeprimercontacto",
   // Columna reutilizada: antes "Fecha estimada de decisión" (retirada, redundante con Fecha estimada
@@ -1139,6 +1168,10 @@ function dealDesdeItemGraph(item){
     contactoCargo: f[CAMPO_SP.contactoCargo] || "",
     contactoEmail: f[CAMPO_SP.contactoEmail] || "",
     contactoTelefono: f[CAMPO_SP.contactoTelefono] || "",
+    contactoProveedorNombre: f[CAMPO_SP.contactoProveedorNombre] || "",
+    contactoProveedorCargo: f[CAMPO_SP.contactoProveedorCargo] || "",
+    contactoProveedorEmail: f[CAMPO_SP.contactoProveedorEmail] || "",
+    contactoProveedorTelefono: f[CAMPO_SP.contactoProveedorTelefono] || "",
     vendors: Array.isArray(f[CAMPO_SP.vendors]) ? f[CAMPO_SP.vendors] : [],
     fechaPrimerContacto: (f[CAMPO_SP.fechaPrimerContacto] || "").slice(0, 10),
     fechaProximaAccion: (f[CAMPO_SP.fechaProximaAccion] || "").slice(0, 10),
@@ -1173,6 +1206,10 @@ function camposGraphDesdeDeal(datos){
   if(datos.contactoCargo !== undefined) fields[CAMPO_SP.contactoCargo] = datos.contactoCargo;
   if(datos.contactoEmail !== undefined) fields[CAMPO_SP.contactoEmail] = datos.contactoEmail;
   if(datos.contactoTelefono !== undefined) fields[CAMPO_SP.contactoTelefono] = datos.contactoTelefono;
+  if(datos.contactoProveedorNombre !== undefined) fields[CAMPO_SP.contactoProveedorNombre] = datos.contactoProveedorNombre;
+  if(datos.contactoProveedorCargo !== undefined) fields[CAMPO_SP.contactoProveedorCargo] = datos.contactoProveedorCargo;
+  if(datos.contactoProveedorEmail !== undefined) fields[CAMPO_SP.contactoProveedorEmail] = datos.contactoProveedorEmail;
+  if(datos.contactoProveedorTelefono !== undefined) fields[CAMPO_SP.contactoProveedorTelefono] = datos.contactoProveedorTelefono;
   if(datos.vendors !== undefined && datos.vendors.length > 0) fields[CAMPO_SP.vendors] = datos.vendors;
   if(datos.fechaPrimerContacto) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto + "T00:00:00Z";
   if(datos.fechaProximaAccion) fields[CAMPO_SP.fechaProximaAccion] = datos.fechaProximaAccion + "T00:00:00Z";
@@ -1248,20 +1285,28 @@ function actualizarContactosGuardadosUI(){
 }
 document.getElementById("f_cliente").addEventListener("change", actualizarContactosGuardadosUI);
 
-// Info de contacto de los proveedores elegidos en el deal — solo informativo (no cambia el modelo
-// de "Proveedores involucrados", que sigue siendo un array de nombres). Ahora sale de Contactos
-// (TipoEmpresa=Proveedor), no de los campos de contacto viejos de Vendors_Info (quedaron huérfanos).
-function actualizarInfoContactoVendor(){
-  const cont = document.getElementById("infoContactoVendor");
-  if(!cont) return;
-  const infos = vendorsSeleccionados.flatMap(nombre =>
-    contactosProveedor.filter(c => c.empresa.toLowerCase() === nombre.toLowerCase() && (c.nombre || c.email || c.telefono))
+// Contacto de proveedor guardado en el deal — a diferencia de "Proveedores involucrados" (que sigue
+// siendo solo un array de nombres), este contacto puntual SÍ se guarda en el deal (campos
+// f_contactoProveedor*). El desplegable junta los contactos de TODOS los proveedores elegidos en
+// "Proveedores involucrados", identificando a qué empresa pertenece cada uno.
+function actualizarContactoProveedorGuardadoUI(){
+  const wrap = document.getElementById("wrapContactoProveedorGuardado");
+  const sel = document.getElementById("f_contactoProveedorGuardado");
+  const opciones = vendorsSeleccionados.flatMap(nombre =>
+    contactosProveedor.filter(c => c.empresa.toLowerCase() === nombre.toLowerCase() && c.nombre)
   );
-  if(infos.length === 0){ cont.innerHTML = ""; return; }
-  cont.innerHTML = infos.map(c => {
-    const partes = [c.nombre, c.cargo, c.email, c.telefono].filter(Boolean).map(escapeHtml).join(" · ");
-    return `<div>📇 <strong>${escapeHtml(c.empresa)}:</strong> ${partes}</div>`;
-  }).join("");
+  if(vendorsSeleccionados.length === 0 || opciones.length === 0){ wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  sel.innerHTML = `<option value="">— Elegir de la base de datos —</option>` +
+    opciones.map((c, i) => `<option value="${i}">${escapeHtml(c.nombre)}${c.cargo ? " — " + escapeHtml(c.cargo) : ""} (${escapeHtml(c.empresa)})</option>`).join("");
+  sel.onchange = () => {
+    if(sel.value === "") return;
+    const c = opciones[Number(sel.value)];
+    document.getElementById("f_contactoProveedorNombre").value = c.nombre;
+    document.getElementById("f_contactoProveedorCargo").value = c.cargo;
+    document.getElementById("f_contactoProveedorEmail").value = c.email;
+    document.getElementById("f_contactoProveedorTelefono").value = c.telefono;
+  };
 }
 
 async function crearDealEnGraph(datos){
@@ -1314,7 +1359,7 @@ async function conectarASharePoint(){
     const resultado = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
     cuentaActiva = resultado.account;
     await cargarDealsDesdeGraph();
-    cargarBasesMaestras().then(() => { poblarSelects(); actualizarInfoContactoVendor(); }); // best-effort, no bloquea el resto de la conexión
+    cargarBasesMaestras().then(() => { poblarSelects(); actualizarContactoProveedorGuardadoUI(); }); // best-effort, no bloquea el resto de la conexión
     modoConectado = true;
     activarUIConectado();
     renderTablero();
@@ -2008,6 +2053,10 @@ function abrirModal(id){
     document.getElementById("f_contactoCargo").value = d.contactoCargo || "";
     document.getElementById("f_contactoEmail").value = d.contactoEmail || "";
     document.getElementById("f_contactoTelefono").value = d.contactoTelefono || "";
+    document.getElementById("f_contactoProveedorNombre").value = d.contactoProveedorNombre || "";
+    document.getElementById("f_contactoProveedorCargo").value = d.contactoProveedorCargo || "";
+    document.getElementById("f_contactoProveedorEmail").value = d.contactoProveedorEmail || "";
+    document.getElementById("f_contactoProveedorTelefono").value = d.contactoProveedorTelefono || "";
     vendorsSeleccionados = [...(d.vendors || [])];
     renderChipsVendors();
     document.getElementById("f_fechaPrimerContacto").value = d.fechaPrimerContacto || "";
@@ -2032,6 +2081,7 @@ function abrirModal(id){
     btnEliminar.style.display = "none";
     actualizarProbabilidadUI();
     actualizarQuarterUI();
+    actualizarContactosGuardadosUI(); // f_cliente queda vacío tras el reset — esto oculta el desplegable
   }
 
   actualizarVisibilidadMotivoPerdida();
@@ -2076,7 +2126,7 @@ function renderChipsVendors(){
       renderChipsVendors();
     });
   });
-  actualizarInfoContactoVendor();
+  actualizarContactoProveedorGuardadoUI();
 }
 
 function agregarVendorDesdeInput(){
@@ -2153,6 +2203,10 @@ document.getElementById("form").addEventListener("submit", async e => {
     contactoCargo: document.getElementById("f_contactoCargo").value.trim(),
     contactoEmail: document.getElementById("f_contactoEmail").value.trim(),
     contactoTelefono: document.getElementById("f_contactoTelefono").value.trim(),
+    contactoProveedorNombre: document.getElementById("f_contactoProveedorNombre").value.trim(),
+    contactoProveedorCargo: document.getElementById("f_contactoProveedorCargo").value.trim(),
+    contactoProveedorEmail: document.getElementById("f_contactoProveedorEmail").value.trim(),
+    contactoProveedorTelefono: document.getElementById("f_contactoProveedorTelefono").value.trim(),
     vendors: [...vendorsSeleccionados],
     fechaPrimerContacto: document.getElementById("f_fechaPrimerContacto").value,
     fechaProximaAccion: document.getElementById("f_fechaProximaAccion").value,
@@ -2268,6 +2322,10 @@ function exportarCSV(){
     ["Días en etapa actual", d => { const n = diasEnEtapa(d.fechaCambioEtapa); return n === null ? "" : n; }],
     ["Vendors involucrados", d => (d.vendors || []).join("; ")],
     ["Fecha de primer contacto", d => d.fechaPrimerContacto ? fmtFecha(d.fechaPrimerContacto) : ""],
+    ["Contacto proveedor", d => d.contactoProveedorNombre || ""],
+    ["Contacto proveedor - Cargo", d => d.contactoProveedorCargo || ""],
+    ["Contacto proveedor - Email", d => d.contactoProveedorEmail || ""],
+    ["Contacto proveedor - Teléfono", d => d.contactoProveedorTelefono || ""],
     ["Motivo de pérdida", d => d.motivoPerdida || ""],
     ["CANS creado", d => d.cansCreado ? "Sí" : "No"],
   ];
@@ -2353,7 +2411,7 @@ async function iniciarApp(){
       cuentaActiva = cuentas[0];
       try {
         await cargarDealsDesdeGraph();
-        cargarBasesMaestras().then(() => { poblarSelects(); actualizarInfoContactoVendor(); }); // best-effort, no bloquea el resto de la conexión
+        cargarBasesMaestras().then(() => { poblarSelects(); actualizarContactoProveedorGuardadoUI(); }); // best-effort, no bloquea el resto de la conexión
         modoConectado = true;
         activarUIConectado();
       } catch (e) {
