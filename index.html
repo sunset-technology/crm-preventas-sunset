@@ -607,7 +607,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     display:flex;
     gap:6px;
   }
-  .fila-agregar-vendor input{flex:1;}
+  .fila-agregar-vendor input, .fila-agregar-vendor select{flex:1;}
   .fila-agregar-vendor button{
     padding:8px 14px;
     white-space:nowrap;
@@ -685,6 +685,13 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     </select>
     <select id="filtroAnio">
       <option value="">Todos los años</option>
+    </select>
+    <select id="filtroTrimestre">
+      <option value="">Todos los trimestres</option>
+      <option value="Q1">Q1</option>
+      <option value="Q2">Q2</option>
+      <option value="Q3">Q3</option>
+      <option value="Q4">Q4</option>
     </select>
     <button class="btn-limpiar" id="btnLimpiar" type="button">Limpiar filtros</button>
     <button class="btn-limpiar" id="btnExportarCsv" type="button">⬇️ Exportar CSV</button>
@@ -827,11 +834,10 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
       <div class="seccion-titulo">Seguimiento</div>
       <div class="campo">
-        <label>Vendors involucrados <span style="font-weight:400;">(incluye ingenieros externos — escribí el nombre si no está en la lista)</span></label>
+        <label>Proveedores involucrados <span style="font-weight:400;">(incluye ingenieros externos — si no está en la lista, agregalo primero desde <a href="./clientes-vendors.html">Clientes/Vendors</a>)</span></label>
         <div class="chips-vendors" id="chipsVendors"></div>
         <div class="fila-agregar-vendor">
-          <input type="text" id="f_vendorNuevo" list="dl_vendors" placeholder="Elegí uno o escribí uno nuevo" autocomplete="off">
-          <datalist id="dl_vendors"></datalist>
+          <select id="f_vendorNuevo"><option value="">Elegí un proveedor…</option></select>
           <button type="button" class="btn-secundario" id="btnAgregarVendor">+ Agregar</button>
         </div>
         <div id="infoContactoVendor" style="font-size:12.5px; color:var(--texto-suave); margin-top:6px;"></div>
@@ -937,14 +943,13 @@ const PROBABILIDAD_POR_ETAPA = {
 };
 
 // ---- Listas base (de TablasDimensiones del CANS) ----
-// Sirven como sugerencias de partida; Cliente, País y Vendedor son "ad hoc":
-// se puede elegir uno de acá o escribir uno nuevo directo en el campo, sin editar código.
-const CLIENTES_BASE = ["CIRION", "CLARO", "DATATRONICS", "DTE", "ENTEL", "GOBIERNO", "INTEGRATEL", "LEDEFYL", "MILICOM", "TECH MAHINDRA", "TELECOM", "TELEFONICA"];
+// Vendedor sigue siendo "ad hoc": se puede elegir uno de acá o escribir uno nuevo directo en el
+// campo. Cliente y Proveedores dejaron de tener lista base hardcodeada acá — desde el 21 ago 2026
+// salen exclusivamente de las listas SharePoint Clientes/Vendors_Info (ver cargarBasesMaestras()),
+// a pedido de Patricio, para que el desplegable del deal solo ofrezca lo que ya está en la base.
 const PAISES_BASE = ["Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Costa Rica", "Ecuador", "El Salvador", "España", "Guatemala", "Guyana", "Honduras", "México", "Nicaragua", "Panamá", "Paraguay", "Perú", "Rep. Dominicana", "Surinam", "Uruguay", "Venezuela"];
 const VENDEDORES_BASE = ["Gustavo Guaspari", "Gustavo Molina"];
 
-// Listas cerradas (confirmadas vía REST contra los choices reales de SharePoint, 14 ago 2026).
-const VENDORS_OPCIONES = ["Titanium", "Squire", "Rakuten", "One2many", "Sagent", "Xius", "NG-Voice", "Khomp", "Otro"];
 const MOTIVO_PERDIDA_OPCIONES = ["Precio", "Timing", "Perdido vs competidor", "Proyecto cancelado por cliente", "Sin presupuesto", "No calificó", "Otro"];
 
 // Config de los dos documentos vinculados y en qué etapa se piden/exigen.
@@ -998,8 +1003,11 @@ const MSAL_CONFIG = {
 const GRAPH_SCOPES = ["Sites.Selected"];
 const SITE_ID = "sunsettechnology567.sharepoint.com,6a79ba18-8c18-4cb2-8670-f9b4978a9092,e63ee1a3-fcaf-4a3a-b016-845f62f01915";
 const LIST_ID = "ac92e48e-0529-4ac3-91fc-d0eaf212e1e7";
-const LIST_ID_CLIENTES = "7d8a178f-91c7-4088-a89d-4e173faa6d9e"; // lista Clientes_Contactos
-const LIST_ID_VENDORS = "f88ac83e-7197-4772-a140-14f092ed32c0"; // lista Vendors_Info
+// LIST_ID_CLIENTES apunta a la lista "Contactos" (ex Clientes_Contactos, renombrada 21 ago 2026) —
+// ahora tiene contactos tanto de clientes como de proveedores, distinguidos por el campo TipoEmpresa.
+const LIST_ID_CLIENTES = "7d8a178f-91c7-4088-a89d-4e173faa6d9e"; // lista Contactos
+const LIST_ID_VENDORS = "f88ac83e-7197-4772-a140-14f092ed32c0"; // lista Vendors_Info (empresas proveedoras)
+const LIST_ID_CLIENTES_EMPRESAS = "7a499509-5ae6-4dfc-9084-00b8022cedef"; // lista Clientes (empresas)
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 // Valores EXACTOS del choice "Etapa" en SharePoint (confirmados vía REST, 13 ago 2026).
@@ -1053,6 +1061,14 @@ let msalInstance = null;
 let cuentaActiva = null;
 let modoConectado = false;
 let msalReadyPromise = null;  // MSAL v3 exige llamar a initialize() (async) antes de usar cualquier otra API
+
+// Eliminar un deal queda reservado al administrador (Patricio) — los comerciales pueden dar de alta,
+// editar y mover de etapa, pero no borrar. Chequeo de UI + doble chequeo antes de la llamada a Graph
+// (ver eliminarDealEnGraph); no reemplaza permisos reales de SharePoint, es un candado a nivel app.
+const ADMIN_EMAIL = "pcamussi@sunset.tech";
+function esAdmin(){
+  return !!cuentaActiva && (cuentaActiva.username || "").toLowerCase() === ADMIN_EMAIL;
+}
 
 function initMsal(){
   // Nunca debe poder tirar abajo el resto de la app: si algo falla acá, el modo prueba
@@ -1176,20 +1192,41 @@ async function cargarDealsDesdeGraph(){
   deals = (data.value || []).map(dealDesdeItemGraph);
 }
 
-// ---- Base de clientes/contactos (lista Clientes_Contactos) — solo lectura desde el CRM principal,
-// se carga y edita desde clientes-vendors.html. Best-effort: si falla, el CRM sigue funcionando igual.
-let contactosClientes = [];
-async function cargarContactosClientes(){
+// ---- Bases maestras: Clientes (empresas), Proveedores (empresas, lista Vendors_Info) y Contactos —
+// todas de solo lectura desde el CRM principal, se cargan y editan desde clientes-vendors.html.
+// Un solo Graph fetch para Contactos, después separado en clientes/proveedores por TipoEmpresa.
+// Best-effort: si falla algo acá, el CRM sigue funcionando igual (solo se pierden los desplegables
+// derivados, no la carga de deals).
+let clientesEmpresas = [];     // [{empresa, notas}] — fuente del desplegable Cliente del deal
+let proveedoresEmpresas = [];  // [{nombre, web, productos, descripcion}] — fuente de Proveedores involucrados
+let contactosClientes = [];    // [{empresa, nombre, cargo, email, telefono}] — TipoEmpresa=Cliente
+let contactosProveedor = [];   // [{empresa, nombre, cargo, email, telefono}] — TipoEmpresa=Proveedor
+
+async function cargarBasesMaestras(){
   try {
-    const data = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items?expand=fields&$top=1000`);
-    contactosClientes = (data.value || []).map(it => ({
+    const [dc, dp, dct] = await Promise.all([
+      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items?expand=fields&$top=1000`),
+      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items?expand=fields&$top=1000`),
+      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items?expand=fields&$top=1000`),
+    ]);
+    clientesEmpresas = (dc.value || []).map(it => ({ empresa: it.fields.Empresa || "", notas: it.fields.Notas || "" }));
+    proveedoresEmpresas = (dp.value || []).map(it => ({
+      nombre: it.fields.NombreVendor || "",
+      web: it.fields.Web || "",
+      productos: it.fields.Productos || "",
+      descripcion: it.fields.Descripcion || "",
+    }));
+    const todosContactos = (dct.value || []).map(it => ({
+      tipo: it.fields.TipoEmpresa || "",
       empresa: it.fields.Empresa || "",
       nombre: it.fields.NombreContacto || "",
       cargo: it.fields.Cargo || "",
       email: it.fields.Email || "",
       telefono: it.fields.Telefono || "",
     }));
-  } catch(e) { console.warn("No se pudo cargar Clientes_Contactos:", e); }
+    contactosClientes = todosContactos.filter(c => c.tipo === "Cliente");
+    contactosProveedor = todosContactos.filter(c => c.tipo === "Proveedor");
+  } catch(e) { console.warn("No se pudieron cargar Clientes/Proveedores/Contactos:", e); }
 }
 function actualizarContactosGuardadosUI(){
   const cliente = document.getElementById("f_cliente").value.trim();
@@ -1211,32 +1248,19 @@ function actualizarContactosGuardadosUI(){
 }
 document.getElementById("f_cliente").addEventListener("change", actualizarContactosGuardadosUI);
 
-// ---- Base de vendors (lista Vendors_Info) — solo lectura desde el CRM principal, se carga y edita
-// desde clientes-vendors.html. Solo informativo: no cambia el modelo de "Vendors involucrados"
-// (sigue siendo un array de nombres). Best-effort: si falla, el CRM sigue funcionando igual.
-let vendorsInfo = [];
-async function cargarVendorsInfo(){
-  try {
-    const data = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items?expand=fields&$top=1000`);
-    vendorsInfo = (data.value || []).map(it => ({
-      nombre: it.fields.NombreVendor || "",
-      contacto: it.fields.Contacto || "",
-      email: it.fields.Email || "",
-      telefono: it.fields.Telefono || "",
-    }));
-  } catch(e) { console.warn("No se pudo cargar Vendors_Info:", e); }
-}
+// Info de contacto de los proveedores elegidos en el deal — solo informativo (no cambia el modelo
+// de "Proveedores involucrados", que sigue siendo un array de nombres). Ahora sale de Contactos
+// (TipoEmpresa=Proveedor), no de los campos de contacto viejos de Vendors_Info (quedaron huérfanos).
 function actualizarInfoContactoVendor(){
   const cont = document.getElementById("infoContactoVendor");
   if(!cont) return;
-  const infos = vendorsSeleccionados
-    .map(nombre => vendorsInfo.find(v => v.nombre.toLowerCase() === nombre.toLowerCase()))
-    .filter(Boolean)
-    .filter(v => v.contacto || v.email || v.telefono);
+  const infos = vendorsSeleccionados.flatMap(nombre =>
+    contactosProveedor.filter(c => c.empresa.toLowerCase() === nombre.toLowerCase() && (c.nombre || c.email || c.telefono))
+  );
   if(infos.length === 0){ cont.innerHTML = ""; return; }
-  cont.innerHTML = infos.map(v => {
-    const partes = [v.contacto, v.email, v.telefono].filter(Boolean).map(escapeHtml).join(" · ");
-    return `<div>📇 <strong>${escapeHtml(v.nombre)}:</strong> ${partes}</div>`;
+  cont.innerHTML = infos.map(c => {
+    const partes = [c.nombre, c.cargo, c.email, c.telefono].filter(Boolean).map(escapeHtml).join(" · ");
+    return `<div>📇 <strong>${escapeHtml(c.empresa)}:</strong> ${partes}</div>`;
   }).join("");
 }
 
@@ -1290,8 +1314,7 @@ async function conectarASharePoint(){
     const resultado = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
     cuentaActiva = resultado.account;
     await cargarDealsDesdeGraph();
-    cargarContactosClientes().then(poblarSelects); // best-effort, no bloquea el resto de la conexión
-    cargarVendorsInfo().then(actualizarInfoContactoVendor); // ídem, solo informativo
+    cargarBasesMaestras().then(() => { poblarSelects(); actualizarInfoContactoVendor(); }); // best-effort, no bloquea el resto de la conexión
     modoConectado = true;
     activarUIConectado();
     renderTablero();
@@ -1406,11 +1429,10 @@ function poblarSelects(){
     sel.innerHTML = sel.querySelector("option").outerHTML + valores.map(v => `<option value="${v}">${v}</option>`).join("");
     if(valores.includes(actual)) sel.value = actual;
   };
-  const empresasClientes = contactosClientes.map(c => c.empresa).filter(Boolean);
-  poblarSelectCerrado("f_cliente", [...CLIENTES_BASE, ...empresasClientes], clientesUnicos());
+  poblarSelectCerrado("f_cliente", clientesEmpresas.map(c => c.empresa).filter(Boolean), clientesUnicos());
   poblarSelectCerrado("f_pais", PAISES_BASE, paisesUnicos());
 
-  // Vendedor y Vendors siguen siendo ad hoc (se pueden escribir nuevos directo acá).
+  // Vendedor sigue siendo ad hoc (se puede escribir uno nuevo directo acá).
   const poblarDatalist = (id, base, enUso) => {
     const valores = [...new Set([...base, ...enUso])].sort();
     document.getElementById(id).innerHTML = valores.map(v => `<option value="${v}"></option>`).join("");
@@ -1420,10 +1442,12 @@ function poblarSelects(){
   const fE = document.getElementById("f_etapa");
   fE.innerHTML = ETAPAS.map(e => `<option value="${e.id}">${e.nombre}</option>`).join("");
 
-  // Datalist de Vendors involucrados: sugerencias base + los que ya se hayan escrito ad hoc en algún deal.
+  // Proveedores involucrados: desplegable cerrado, solo empresas ya cargadas en la base de Proveedores
+  // (más las que ya estén en uso en deals reales, por si algo quedó desincronizado).
   const vendorsEnUso = [...new Set(deals.flatMap(d => d.vendors || []))];
-  const opcionesVendors = [...new Set([...VENDORS_OPCIONES, ...vendorsEnUso])].sort();
-  document.getElementById("dl_vendors").innerHTML = opcionesVendors.map(v => `<option value="${v}"></option>`).join("");
+  const opcionesVendors = [...new Set([...proveedoresEmpresas.map(p => p.nombre), ...vendorsEnUso])].filter(Boolean).sort();
+  document.getElementById("f_vendorNuevo").innerHTML = `<option value="">${opcionesVendors.length ? "Elegí un proveedor…" : "No hay proveedores cargados todavía"}</option>` +
+    opcionesVendors.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
 
   // Selects de Motivo de pérdida (form principal + modal de confirmación de cierre).
   const opcionesMotivo = `<option value="">Elegí un motivo…</option>` +
@@ -1437,6 +1461,7 @@ function pasaFiltros(d, filtros){
   if(filtros.cliente && d.cliente !== filtros.cliente) return false;
   if(filtros.pais && d.pais !== filtros.pais) return false;
   if(filtros.anio && (!d.fecha || d.fecha.slice(0, 4) !== filtros.anio)) return false;
+  if(filtros.trimestre && trimestreDeFecha(d.fecha) !== filtros.trimestre) return false;
   if(filtros.busqueda){
     const q = filtros.busqueda.toLowerCase();
     if(!d.titulo.toLowerCase().includes(q) && !d.cliente.toLowerCase().includes(q)) return false;
@@ -1453,6 +1478,7 @@ function leerFiltros(){
     pais: document.getElementById("filtroPais").value,
     vendedor: document.getElementById("filtroVendedor").value,
     anio: document.getElementById("filtroAnio").value,
+    trimestre: document.getElementById("filtroTrimestre").value,
   };
 }
 
@@ -1993,7 +2019,7 @@ function abrirModal(id){
     document.getElementById("indicadorCansCreado").textContent = d.cansCreado
       ? "✓ CANS creado" + (d.fechaCreacionCans ? ` (${fmtFecha(d.fechaCreacionCans)})` : "")
       : "Todavía no se generó (lo crea Flujo A automáticamente).";
-    btnEliminar.style.display = "inline-block";
+    btnEliminar.style.display = esAdmin() ? "inline-block" : "none";
   } else {
     etapaOriginal = null;
     document.getElementById("modalTitulo").textContent = "Nueva oportunidad";
@@ -2024,6 +2050,14 @@ function calcularQuarter(fechaISO){
   const q = Math.ceil(mes / 3);
   return `Q${q} ${anio}`;
 }
+// Solo el trimestre ("Q1".."Q4"), sin el año — se combina con el filtro de Año existente en vez de
+// duplicarlo (un desplegable "Q1 2026, Q2 2026, Q1 2027..." sería más largo y menos cómodo de usar).
+function trimestreDeFecha(fechaISO){
+  if(!fechaISO) return "";
+  const mes = Number(fechaISO.split("-")[1]);
+  if(!mes) return "";
+  return `Q${Math.ceil(mes / 3)}`;
+}
 function actualizarQuarterUI(){
   document.getElementById("f_quarter").value = calcularQuarter(document.getElementById("f_fecha").value);
 }
@@ -2046,22 +2080,15 @@ function renderChipsVendors(){
 }
 
 function agregarVendorDesdeInput(){
-  const input = document.getElementById("f_vendorNuevo");
-  const valor = input.value.trim();
+  const sel = document.getElementById("f_vendorNuevo");
+  const valor = sel.value;
   if(!valor) return;
   if(!vendorsSeleccionados.includes(valor)) vendorsSeleccionados.push(valor);
-  input.value = "";
+  sel.value = "";
   renderChipsVendors();
-  input.focus();
 }
 
 document.getElementById("btnAgregarVendor").addEventListener("click", agregarVendorDesdeInput);
-document.getElementById("f_vendorNuevo").addEventListener("keydown", e => {
-  if(e.key === "Enter"){
-    e.preventDefault(); // no debe enviar el formulario, solo agregar el chip
-    agregarVendorDesdeInput();
-  }
-});
 
 function actualizarVisibilidadMotivoPerdida(){
   const esPerdido = document.getElementById("f_etapa").value === "lost";
@@ -2081,6 +2108,12 @@ document.getElementById("overlay").addEventListener("click", e => {
 });
 
 document.getElementById("btnEliminar").addEventListener("click", async () => {
+  // Doble chequeo: el botón ya está oculto para quien no sea admin, esto es solo para no confiar
+  // únicamente en el estado visual del DOM.
+  if(!esAdmin()){
+    alert("Eliminar oportunidades es una acción reservada al administrador del CRM.");
+    return;
+  }
   if(!editandoId || !confirm("¿Eliminar esta oportunidad?")) return;
   const idAEliminar = editandoId;
   const respaldo = deals.find(d => d.id === idAEliminar);
@@ -2151,10 +2184,10 @@ document.getElementById("form").addEventListener("submit", async e => {
   // Se calcula ANTES de guardar: comparar contra listas ya actualizadas con este mismo deal
   // haría que nunca se detecte un valor como "nuevo".
   const conocidosAntesDeGuardar = {
-    clientes: new Set([...CLIENTES_BASE, ...clientesUnicos()]),
+    clientes: new Set([...clientesEmpresas.map(c => c.empresa), ...clientesUnicos()]),
     paises: new Set([...PAISES_BASE, ...paisesUnicos()]),
     vendedores: new Set([...VENDEDORES_BASE, ...vendedoresUnicos()]),
-    vendors: new Set([...VENDORS_OPCIONES, ...deals.flatMap(x => x.vendors || [])]),
+    vendors: new Set([...proveedoresEmpresas.map(p => p.nombre), ...deals.flatMap(x => x.vendors || [])]),
   };
 
   const btnGuardar = e.target.querySelector('button[type="submit"]');
@@ -2196,6 +2229,7 @@ document.getElementById("filtroVendedor").addEventListener("change", renderTable
 document.getElementById("filtroCliente").addEventListener("change", renderTablero);
 document.getElementById("filtroPais").addEventListener("change", renderTablero);
 document.getElementById("filtroAnio").addEventListener("change", renderTablero);
+document.getElementById("filtroTrimestre").addEventListener("change", renderTablero);
 document.getElementById("buscador").addEventListener("input", renderTablero);
 
 document.getElementById("btnLimpiar").addEventListener("click", () => {
@@ -2204,6 +2238,7 @@ document.getElementById("btnLimpiar").addEventListener("click", () => {
   document.getElementById("filtroPais").value = "";
   document.getElementById("filtroVendedor").value = "";
   document.getElementById("filtroAnio").value = "";
+  document.getElementById("filtroTrimestre").value = "";
   renderTablero();
 });
 
@@ -2318,8 +2353,7 @@ async function iniciarApp(){
       cuentaActiva = cuentas[0];
       try {
         await cargarDealsDesdeGraph();
-        cargarContactosClientes().then(poblarSelects); // best-effort, no bloquea el resto de la conexión
-    cargarVendorsInfo().then(actualizarInfoContactoVendor); // ídem, solo informativo
+        cargarBasesMaestras().then(() => { poblarSelects(); actualizarInfoContactoVendor(); }); // best-effort, no bloquea el resto de la conexión
         modoConectado = true;
         activarUIConectado();
       } catch (e) {

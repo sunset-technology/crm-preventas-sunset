@@ -621,15 +621,16 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 <div class="app-layout">
   <aside class="sidebar" style="width:230px;">
     <div style="padding:14px 16px; font-weight:700; font-size:15px;">📇 Base de Datos</div>
-    <button type="button" class="nav-item activo" id="tabClientes" style="text-align:left; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; color:#fff; font-size:14px;">🏢 Clientes / Contactos</button>
-    <button type="button" class="nav-item" id="tabVendors" style="text-align:left; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; color:#fff; font-size:14px;">🏭 Vendors</button>
+    <button type="button" class="nav-item activo" id="tabClientes" style="text-align:left; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; color:#fff; font-size:14px;">🏢 Clientes</button>
+    <button type="button" class="nav-item" id="tabProveedores" style="text-align:left; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; color:#fff; font-size:14px;">🏭 Proveedores</button>
+    <button type="button" class="nav-item" id="tabContactos" style="text-align:left; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; color:#fff; font-size:14px;">👤 Contactos</button>
     <div style="flex:1;"></div>
     <div style="padding:14px 16px;"><a href="./index.html" style="color:#fff; font-size:13px;">← Volver al CRM</a></div>
   </aside>
   <div class="contenido">
     <header>
       <div>
-        <h1>Base de Datos — Clientes y Vendors</h1>
+        <h1>Base de Datos — Clientes, Proveedores y Contactos</h1>
         <div class="subtitulo" id="subtitulo">Conectate a SharePoint para ver y cargar datos.</div>
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
@@ -640,17 +641,24 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     <main>
       <div id="vistaClientes">
         <div style="display:flex; justify-content:space-between; align-items:center; margin:0 0 14px;">
-          <input type="text" id="buscarCliente" placeholder="Buscar por empresa o contacto…" style="max-width:320px;">
-          <button type="button" class="btn-primario" id="btnNuevoCliente">+ Agregar contacto</button>
+          <input type="text" id="buscarCliente" placeholder="Buscar por empresa…" style="max-width:320px;">
+          <button type="button" class="btn-primario" id="btnNuevoCliente">+ Agregar cliente</button>
         </div>
         <table class="tabla-datos" id="tablaClientes"></table>
       </div>
-      <div id="vistaVendors" style="display:none;">
+      <div id="vistaProveedores" style="display:none;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin:0 0 14px;">
-          <input type="text" id="buscarVendor" placeholder="Buscar por nombre…" style="max-width:320px;">
-          <button type="button" class="btn-primario" id="btnNuevoVendor">+ Agregar vendor</button>
+          <input type="text" id="buscarProveedor" placeholder="Buscar por nombre…" style="max-width:320px;">
+          <button type="button" class="btn-primario" id="btnNuevoProveedor">+ Agregar proveedor</button>
         </div>
-        <table class="tabla-datos" id="tablaVendors"></table>
+        <table class="tabla-datos" id="tablaProveedores"></table>
+      </div>
+      <div id="vistaContactos" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:0 0 14px;">
+          <input type="text" id="buscarContacto" placeholder="Buscar por nombre o empresa…" style="max-width:320px;">
+          <button type="button" class="btn-primario" id="btnNuevoContacto">+ Agregar contacto</button>
+        </div>
+        <table class="tabla-datos" id="tablaContactos"></table>
       </div>
     </main>
   </div>
@@ -658,22 +666,11 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
 <div class="overlay" id="overlayCliente">
   <div class="modal">
-    <h2>Cliente / Contacto</h2>
+    <h2>Cliente</h2>
     <form id="formCliente">
-      <div class="fila2">
-        <div class="campo"><label>Empresa</label><input type="text" id="c_empresa" required></div>
-        <div class="campo"><label>País</label><input type="text" id="c_pais"></div>
-      </div>
-      <div class="fila2">
-        <div class="campo"><label>Nombre del contacto</label><input type="text" id="c_nombre"></div>
-        <div class="campo"><label>Cargo</label><input type="text" id="c_cargo"></div>
-      </div>
-      <div class="fila2">
-        <div class="campo"><label>Email</label><input type="email" id="c_email"></div>
-        <div class="campo"><label>Teléfono</label><input type="text" id="c_telefono"></div>
-      </div>
-      <div class="campo"><label>Ubicación</label><input type="text" id="c_ubicacion" placeholder="Ciudad / oficina"></div>
-      <div class="campo"><label>Notas</label><textarea id="c_notas" rows="2"></textarea></div>
+      <div class="campo"><label>Empresa</label><input type="text" id="c_empresa" required></div>
+      <div class="campo"><label>Notas</label><textarea id="c_notas" rows="3"></textarea></div>
+      <div class="nota-graph">El país y los datos de contacto se cargan por separado en la pestaña Contactos — una empresa puede tener contactos en más de un país.</div>
       <div class="modal-acciones">
         <button type="button" class="btn-eliminar" id="btnEliminarCliente" style="display:none;">Eliminar</button>
         <div style="display:flex; gap:8px; margin-left:auto;">
@@ -685,25 +682,62 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
   </div>
 </div>
 
-<div class="overlay" id="overlayVendor">
+<div class="overlay" id="overlayProveedor">
   <div class="modal">
-    <h2>Vendor</h2>
-    <form id="formVendor">
-      <div class="fila2">
-        <div class="campo"><label>Nombre del vendor</label><input type="text" id="v_nombre" required></div>
-        <div class="campo"><label>Contacto</label><input type="text" id="v_contacto"></div>
-      </div>
-      <div class="fila2">
-        <div class="campo"><label>Email</label><input type="email" id="v_email"></div>
-        <div class="campo"><label>Teléfono</label><input type="text" id="v_telefono"></div>
-      </div>
-      <div class="campo"><label>Página web</label><input type="text" id="v_web" placeholder="https://..."></div>
-      <div class="campo"><label>Productos</label><input type="text" id="v_productos" placeholder="Ej: SBC, DRA, PCRF"></div>
-      <div class="campo"><label>Descripción</label><textarea id="v_descripcion" rows="2"></textarea></div>
+    <h2>Proveedor</h2>
+    <form id="formProveedor">
+      <div class="campo"><label>Nombre del proveedor</label><input type="text" id="p_nombre" required></div>
+      <div class="campo"><label>Página web</label><input type="text" id="p_web" placeholder="https://..."></div>
+      <div class="campo"><label>Productos</label><input type="text" id="p_productos" placeholder="Ej: SBC, DRA, PCRF"></div>
+      <div class="campo"><label>Descripción</label><textarea id="p_descripcion" rows="3"></textarea></div>
+      <div class="nota-graph">Los datos de contacto se cargan por separado en la pestaña Contactos.</div>
       <div class="modal-acciones">
-        <button type="button" class="btn-eliminar" id="btnEliminarVendor" style="display:none;">Eliminar</button>
+        <button type="button" class="btn-eliminar" id="btnEliminarProveedor" style="display:none;">Eliminar</button>
         <div style="display:flex; gap:8px; margin-left:auto;">
-          <button type="button" class="btn-secundario" id="btnCancelarVendor">Cancelar</button>
+          <button type="button" class="btn-secundario" id="btnCancelarProveedor">Cancelar</button>
+          <button type="submit" class="btn-primario">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="overlayContacto">
+  <div class="modal">
+    <h2>Contacto</h2>
+    <form id="formContacto">
+      <div class="fila2">
+        <div class="campo">
+          <label>Tipo de empresa</label>
+          <select id="ct_tipo" required>
+            <option value="">Elegí un tipo…</option>
+            <option value="Cliente">Cliente</option>
+            <option value="Proveedor">Proveedor</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Empresa</label>
+          <select id="ct_empresa" required><option value="">Elegí primero el tipo…</option></select>
+        </div>
+      </div>
+      <div class="fila2">
+        <div class="campo"><label>Nombre del contacto</label><input type="text" id="ct_nombre" required></div>
+        <div class="campo"><label>Cargo</label><input type="text" id="ct_cargo"></div>
+      </div>
+      <div class="fila2">
+        <div class="campo"><label>Email</label><input type="email" id="ct_email"></div>
+        <div class="campo"><label>Teléfono</label><input type="text" id="ct_telefono"></div>
+      </div>
+      <div class="fila2">
+        <div class="campo"><label>País</label><input type="text" id="ct_pais"></div>
+        <div class="campo"><label>Ubicación</label><input type="text" id="ct_ubicacion" placeholder="Ciudad / oficina"></div>
+      </div>
+      <div class="campo"><label>Notas</label><textarea id="ct_notas" rows="2"></textarea></div>
+      <div class="nota-graph">Si este contacto cambió de empresa, editalo y elegí la nueva empresa acá — se relinkea automáticamente.</div>
+      <div class="modal-acciones">
+        <button type="button" class="btn-eliminar" id="btnEliminarContacto" style="display:none;">Eliminar</button>
+        <div style="display:flex; gap:8px; margin-left:auto;">
+          <button type="button" class="btn-secundario" id="btnCancelarContacto">Cancelar</button>
           <button type="submit" class="btn-primario">Guardar</button>
         </div>
       </div>
@@ -729,12 +763,18 @@ const MSAL_CONFIG = {
 };
 const GRAPH_SCOPES = ["Sites.Selected"];
 const SITE_ID = "sunsettechnology567.sharepoint.com,6a79ba18-8c18-4cb2-8670-f9b4978a9092,e63ee1a3-fcaf-4a3a-b016-845f62f01915";
-const LIST_ID_CLIENTES = "7d8a178f-91c7-4088-a89d-4e173faa6d9e";
-const LIST_ID_VENDORS = "f88ac83e-7197-4772-a140-14f092ed32c0";
+// Clientes = empresas cliente (lista nueva). Proveedores = ex "Vendors_Info", ahora solo info de empresa
+// (Contacto/Email/Telefono de esa lista quedaron huérfanos, sin usar — el contacto vive en Contactos).
+// Contactos = ex "Clientes_Contactos", renombrada y ampliada con TipoEmpresa+Empresa para poder
+// representar también contactos de proveedores, no solo de clientes.
+const LIST_ID_CLIENTES_EMPRESAS = "7a499509-5ae6-4dfc-9084-00b8022cedef";
+const LIST_ID_PROVEEDORES = "f88ac83e-7197-4772-a140-14f092ed32c0";
+const LIST_ID_CONTACTOS = "7d8a178f-91c7-4088-a89d-4e173faa6d9e";
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 let msalInstance = null, cuentaActiva = null, msalReadyPromise = null, modoConectado = false;
-let clientes = [], vendors = [], editandoClienteId = null, editandoVendorId = null;
+let clientes = [], proveedores = [], contactos = [];
+let editandoClienteId = null, editandoProveedorId = null, editandoContactoId = null;
 
 function initMsal(){
   try {
@@ -773,159 +813,227 @@ function escapeHtml(s){
 }
 
 async function cargarDatos(){
-  const [dc, dv] = await Promise.all([
-    graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items?expand=fields&$top=500`),
-    graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items?expand=fields&$top=500`),
+  const [dc, dp, dct] = await Promise.all([
+    graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items?expand=fields&$top=1000`),
+    graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_PROVEEDORES}/items?expand=fields&$top=1000`),
+    graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CONTACTOS}/items?expand=fields&$top=1000`),
   ]);
   clientes = dc.value.map(it => ({
     id: it.id,
     empresa: it.fields.Empresa || "",
-    pais: it.fields.Pais || "",
-    nombre: it.fields.NombreContacto || "",
-    cargo: it.fields.Cargo || "",
-    email: it.fields.Email || "",
-    telefono: it.fields.Telefono || "",
-    ubicacion: it.fields.Ubicacion || "",
     notas: it.fields.Notas || "",
   }));
-  vendors = dv.value.map(it => ({
+  proveedores = dp.value.map(it => ({
     id: it.id,
     nombre: it.fields.NombreVendor || "",
-    contacto: it.fields.Contacto || "",
-    email: it.fields.Email || "",
-    telefono: it.fields.Telefono || "",
     web: it.fields.Web || "",
     productos: it.fields.Productos || "",
     descripcion: it.fields.Descripcion || "",
   }));
+  contactos = dct.value.map(it => ({
+    id: it.id,
+    tipo: it.fields.TipoEmpresa || "",
+    empresa: it.fields.Empresa || "",
+    nombre: it.fields.NombreContacto || "",
+    cargo: it.fields.Cargo || "",
+    email: it.fields.Email || "",
+    telefono: it.fields.Telefono || "",
+    pais: it.fields.Pais || "",
+    ubicacion: it.fields.Ubicacion || "",
+    notas: it.fields.Notas || "",
+  }));
 }
+
+function renderTodo(){ renderClientes(); renderProveedores(); renderContactos(); }
 
 function renderClientes(){
   const filtro = document.getElementById("buscarCliente").value.trim().toLowerCase();
-  const filas = clientes.filter(c => !filtro || (c.empresa+c.nombre).toLowerCase().includes(filtro));
+  const filas = clientes
+    .filter(c => !filtro || c.empresa.toLowerCase().includes(filtro))
+    .sort((a, b) => a.empresa.localeCompare(b.empresa));
   document.getElementById("tablaClientes").innerHTML = `
-    <tr><th>Empresa</th><th>País</th><th>Contacto</th><th>Cargo</th><th>Email</th><th>Teléfono</th></tr>
-    ${filas.map(c => `<tr data-id="${c.id}"><td>${escapeHtml(c.empresa)}</td><td>${escapeHtml(c.pais)}</td><td>${escapeHtml(c.nombre)}</td><td>${escapeHtml(c.cargo)}</td><td>${escapeHtml(c.email)}</td><td>${escapeHtml(c.telefono)}</td></tr>`).join("") || `<tr><td colspan="6" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
+    <tr><th>Empresa</th><th>Contactos</th><th>Notas</th></tr>
+    ${filas.map(c => {
+      const nContactos = contactos.filter(x => x.tipo === "Cliente" && x.empresa === c.empresa).length;
+      return `<tr data-id="${c.id}"><td>${escapeHtml(c.empresa)}</td><td>${nContactos}</td><td>${escapeHtml(c.notas)}</td></tr>`;
+    }).join("") || `<tr><td colspan="3" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
   `;
   document.querySelectorAll("#tablaClientes tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalCliente(tr.dataset.id)));
 }
-function renderVendors(){
-  const filtro = document.getElementById("buscarVendor").value.trim().toLowerCase();
-  const filas = vendors.filter(v => !filtro || v.nombre.toLowerCase().includes(filtro));
-  document.getElementById("tablaVendors").innerHTML = `
-    <tr><th>Nombre</th><th>Contacto</th><th>Email</th><th>Teléfono</th><th>Productos</th></tr>
-    ${filas.map(v => `<tr data-id="${v.id}"><td>${escapeHtml(v.nombre)}</td><td>${escapeHtml(v.contacto)}</td><td>${escapeHtml(v.email)}</td><td>${escapeHtml(v.telefono)}</td><td>${escapeHtml(v.productos)}</td></tr>`).join("") || `<tr><td colspan="5" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
+function renderProveedores(){
+  const filtro = document.getElementById("buscarProveedor").value.trim().toLowerCase();
+  const filas = proveedores
+    .filter(p => !filtro || p.nombre.toLowerCase().includes(filtro))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById("tablaProveedores").innerHTML = `
+    <tr><th>Nombre</th><th>Contactos</th><th>Productos</th><th>Web</th></tr>
+    ${filas.map(p => {
+      const nContactos = contactos.filter(x => x.tipo === "Proveedor" && x.empresa === p.nombre).length;
+      return `<tr data-id="${p.id}"><td>${escapeHtml(p.nombre)}</td><td>${nContactos}</td><td>${escapeHtml(p.productos)}</td><td>${escapeHtml(p.web)}</td></tr>`;
+    }).join("") || `<tr><td colspan="4" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
   `;
-  document.querySelectorAll("#tablaVendors tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalVendor(tr.dataset.id)));
+  document.querySelectorAll("#tablaProveedores tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalProveedor(tr.dataset.id)));
+}
+function renderContactos(){
+  const filtro = document.getElementById("buscarContacto").value.trim().toLowerCase();
+  const filas = contactos
+    .filter(c => !filtro || (c.nombre + c.empresa).toLowerCase().includes(filtro))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById("tablaContactos").innerHTML = `
+    <tr><th>Nombre</th><th>Tipo</th><th>Empresa</th><th>Cargo</th><th>Email</th><th>Teléfono</th><th>País</th></tr>
+    ${filas.map(c => `<tr data-id="${c.id}"><td>${escapeHtml(c.nombre)}</td><td>${escapeHtml(c.tipo)}</td><td>${escapeHtml(c.empresa)}</td><td>${escapeHtml(c.cargo)}</td><td>${escapeHtml(c.email)}</td><td>${escapeHtml(c.telefono)}</td><td>${escapeHtml(c.pais)}</td></tr>`).join("") || `<tr><td colspan="7" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
+  `;
+  document.querySelectorAll("#tablaContactos tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalContacto(tr.dataset.id)));
 }
 
 function abrirModalCliente(id){
   editandoClienteId = id || null;
   const c = id ? clientes.find(x => x.id === id) : null;
   document.getElementById("c_empresa").value = c ? c.empresa : "";
-  document.getElementById("c_pais").value = c ? c.pais : "";
-  document.getElementById("c_nombre").value = c ? c.nombre : "";
-  document.getElementById("c_cargo").value = c ? c.cargo : "";
-  document.getElementById("c_email").value = c ? c.email : "";
-  document.getElementById("c_telefono").value = c ? c.telefono : "";
-  document.getElementById("c_ubicacion").value = c ? c.ubicacion : "";
   document.getElementById("c_notas").value = c ? c.notas : "";
   document.getElementById("btnEliminarCliente").style.display = c ? "inline-block" : "none";
   document.getElementById("overlayCliente").classList.add("activo");
 }
-function abrirModalVendor(id){
-  editandoVendorId = id || null;
-  const v = id ? vendors.find(x => x.id === id) : null;
-  document.getElementById("v_nombre").value = v ? v.nombre : "";
-  document.getElementById("v_contacto").value = v ? v.contacto : "";
-  document.getElementById("v_email").value = v ? v.email : "";
-  document.getElementById("v_telefono").value = v ? v.telefono : "";
-  document.getElementById("v_web").value = v ? v.web : "";
-  document.getElementById("v_productos").value = v ? v.productos : "";
-  document.getElementById("v_descripcion").value = v ? v.descripcion : "";
-  document.getElementById("btnEliminarVendor").style.display = v ? "inline-block" : "none";
-  document.getElementById("overlayVendor").classList.add("activo");
+function abrirModalProveedor(id){
+  editandoProveedorId = id || null;
+  const p = id ? proveedores.find(x => x.id === id) : null;
+  document.getElementById("p_nombre").value = p ? p.nombre : "";
+  document.getElementById("p_web").value = p ? p.web : "";
+  document.getElementById("p_productos").value = p ? p.productos : "";
+  document.getElementById("p_descripcion").value = p ? p.descripcion : "";
+  document.getElementById("btnEliminarProveedor").style.display = p ? "inline-block" : "none";
+  document.getElementById("overlayProveedor").classList.add("activo");
+}
+// Desplegable de Empresa dentro del modal de Contacto: cerrado, se alimenta de Clientes o Proveedores
+// según el Tipo de empresa elegido — evita contactos linkeados a una empresa que no existe en la base.
+function poblarEmpresasSegunTipo(tipo, seleccionActual){
+  const sel = document.getElementById("ct_empresa");
+  const opciones = tipo === "Cliente" ? clientes.map(c => c.empresa)
+    : tipo === "Proveedor" ? proveedores.map(p => p.nombre)
+    : [];
+  const unicas = [...new Set(opciones)].filter(Boolean).sort();
+  sel.innerHTML = `<option value="">${tipo ? (unicas.length ? "Elegí una empresa…" : "No hay empresas cargadas — agregala primero en su pestaña") : "Elegí primero el tipo…"}</option>` +
+    unicas.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+  if(seleccionActual && unicas.includes(seleccionActual)) sel.value = seleccionActual;
+}
+document.getElementById("ct_tipo").addEventListener("change", () => poblarEmpresasSegunTipo(document.getElementById("ct_tipo").value, ""));
+function abrirModalContacto(id){
+  editandoContactoId = id || null;
+  const c = id ? contactos.find(x => x.id === id) : null;
+  document.getElementById("ct_tipo").value = c ? c.tipo : "";
+  poblarEmpresasSegunTipo(c ? c.tipo : "", c ? c.empresa : "");
+  document.getElementById("ct_nombre").value = c ? c.nombre : "";
+  document.getElementById("ct_cargo").value = c ? c.cargo : "";
+  document.getElementById("ct_email").value = c ? c.email : "";
+  document.getElementById("ct_telefono").value = c ? c.telefono : "";
+  document.getElementById("ct_pais").value = c ? c.pais : "";
+  document.getElementById("ct_ubicacion").value = c ? c.ubicacion : "";
+  document.getElementById("ct_notas").value = c ? c.notas : "";
+  document.getElementById("btnEliminarContacto").style.display = c ? "inline-block" : "none";
+  document.getElementById("overlayContacto").classList.add("activo");
 }
 
 document.getElementById("btnNuevoCliente").addEventListener("click", () => abrirModalCliente(null));
-document.getElementById("btnNuevoVendor").addEventListener("click", () => abrirModalVendor(null));
+document.getElementById("btnNuevoProveedor").addEventListener("click", () => abrirModalProveedor(null));
+document.getElementById("btnNuevoContacto").addEventListener("click", () => abrirModalContacto(null));
 document.getElementById("btnCancelarCliente").addEventListener("click", () => document.getElementById("overlayCliente").classList.remove("activo"));
-document.getElementById("btnCancelarVendor").addEventListener("click", () => document.getElementById("overlayVendor").classList.remove("activo"));
+document.getElementById("btnCancelarProveedor").addEventListener("click", () => document.getElementById("overlayProveedor").classList.remove("activo"));
+document.getElementById("btnCancelarContacto").addEventListener("click", () => document.getElementById("overlayContacto").classList.remove("activo"));
 document.getElementById("buscarCliente").addEventListener("input", renderClientes);
-document.getElementById("buscarVendor").addEventListener("input", renderVendors);
+document.getElementById("buscarProveedor").addEventListener("input", renderProveedores);
+document.getElementById("buscarContacto").addEventListener("input", renderContactos);
 
 document.getElementById("formCliente").addEventListener("submit", async e => {
   e.preventDefault();
   const empresa = document.getElementById("c_empresa").value.trim();
-  const fields = {
-    Title: empresa,
-    Empresa: empresa,
-    Pais: document.getElementById("c_pais").value.trim(),
-    NombreContacto: document.getElementById("c_nombre").value.trim(),
-    Cargo: document.getElementById("c_cargo").value.trim(),
-    Email: document.getElementById("c_email").value.trim(),
-    Telefono: document.getElementById("c_telefono").value.trim(),
-    Ubicacion: document.getElementById("c_ubicacion").value.trim(),
-    Notas: document.getElementById("c_notas").value.trim(),
-  };
+  const fields = { Title: empresa, Empresa: empresa, Notas: document.getElementById("c_notas").value.trim() };
   try {
     if(editandoClienteId){
-      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items/${editandoClienteId}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items/${editandoClienteId}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
     } else {
-      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items`, { method: "POST", body: JSON.stringify({ fields }) });
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items`, { method: "POST", body: JSON.stringify({ fields }) });
     }
     document.getElementById("overlayCliente").classList.remove("activo");
-    await cargarDatos(); renderClientes();
+    await cargarDatos(); renderTodo();
   } catch(err){ alert("No se pudo guardar: " + err.message); }
 });
-document.getElementById("formVendor").addEventListener("submit", async e => {
+document.getElementById("formProveedor").addEventListener("submit", async e => {
   e.preventDefault();
-  const nombre = document.getElementById("v_nombre").value.trim();
+  const nombre = document.getElementById("p_nombre").value.trim();
   const fields = {
     Title: nombre,
     NombreVendor: nombre,
-    Contacto: document.getElementById("v_contacto").value.trim(),
-    Email: document.getElementById("v_email").value.trim(),
-    Telefono: document.getElementById("v_telefono").value.trim(),
-    Web: document.getElementById("v_web").value.trim(),
-    Productos: document.getElementById("v_productos").value.trim(),
-    Descripcion: document.getElementById("v_descripcion").value.trim(),
+    Web: document.getElementById("p_web").value.trim(),
+    Productos: document.getElementById("p_productos").value.trim(),
+    Descripcion: document.getElementById("p_descripcion").value.trim(),
   };
   try {
-    if(editandoVendorId){
-      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items/${editandoVendorId}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
+    if(editandoProveedorId){
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_PROVEEDORES}/items/${editandoProveedorId}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
     } else {
-      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items`, { method: "POST", body: JSON.stringify({ fields }) });
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_PROVEEDORES}/items`, { method: "POST", body: JSON.stringify({ fields }) });
     }
-    document.getElementById("overlayVendor").classList.remove("activo");
-    await cargarDatos(); renderVendors();
+    document.getElementById("overlayProveedor").classList.remove("activo");
+    await cargarDatos(); renderTodo();
+  } catch(err){ alert("No se pudo guardar: " + err.message); }
+});
+document.getElementById("formContacto").addEventListener("submit", async e => {
+  e.preventDefault();
+  const nombre = document.getElementById("ct_nombre").value.trim();
+  const fields = {
+    Title: nombre,
+    NombreContacto: nombre,
+    TipoEmpresa: document.getElementById("ct_tipo").value,
+    Empresa: document.getElementById("ct_empresa").value,
+    Cargo: document.getElementById("ct_cargo").value.trim(),
+    Email: document.getElementById("ct_email").value.trim(),
+    Telefono: document.getElementById("ct_telefono").value.trim(),
+    Pais: document.getElementById("ct_pais").value.trim(),
+    Ubicacion: document.getElementById("ct_ubicacion").value.trim(),
+    Notas: document.getElementById("ct_notas").value.trim(),
+  };
+  if(!fields.TipoEmpresa || !fields.Empresa){
+    alert("Elegí el tipo de empresa y la empresa antes de guardar.");
+    return;
+  }
+  try {
+    if(editandoContactoId){
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CONTACTOS}/items/${editandoContactoId}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
+    } else {
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CONTACTOS}/items`, { method: "POST", body: JSON.stringify({ fields }) });
+    }
+    document.getElementById("overlayContacto").classList.remove("activo");
+    await cargarDatos(); renderTodo();
   } catch(err){ alert("No se pudo guardar: " + err.message); }
 });
 document.getElementById("btnEliminarCliente").addEventListener("click", async () => {
-  if(!editandoClienteId || !confirm("¿Eliminar este contacto?")) return;
-  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items/${editandoClienteId}`, { method: "DELETE" });
+  if(!editandoClienteId || !confirm("¿Eliminar este cliente? Los contactos linkeados a él van a quedar sin empresa asociada.")) return;
+  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items/${editandoClienteId}`, { method: "DELETE" });
   document.getElementById("overlayCliente").classList.remove("activo");
-  await cargarDatos(); renderClientes();
+  await cargarDatos(); renderTodo();
 });
-document.getElementById("btnEliminarVendor").addEventListener("click", async () => {
-  if(!editandoVendorId || !confirm("¿Eliminar este vendor?")) return;
-  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items/${editandoVendorId}`, { method: "DELETE" });
-  document.getElementById("overlayVendor").classList.remove("activo");
-  await cargarDatos(); renderVendors();
+document.getElementById("btnEliminarProveedor").addEventListener("click", async () => {
+  if(!editandoProveedorId || !confirm("¿Eliminar este proveedor? Los contactos linkeados a él van a quedar sin empresa asociada.")) return;
+  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_PROVEEDORES}/items/${editandoProveedorId}`, { method: "DELETE" });
+  document.getElementById("overlayProveedor").classList.remove("activo");
+  await cargarDatos(); renderTodo();
+});
+document.getElementById("btnEliminarContacto").addEventListener("click", async () => {
+  if(!editandoContactoId || !confirm("¿Eliminar este contacto?")) return;
+  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CONTACTOS}/items/${editandoContactoId}`, { method: "DELETE" });
+  document.getElementById("overlayContacto").classList.remove("activo");
+  await cargarDatos(); renderTodo();
 });
 
-document.getElementById("tabClientes").addEventListener("click", () => {
-  document.getElementById("tabClientes").classList.add("activo");
-  document.getElementById("tabVendors").classList.remove("activo");
-  document.getElementById("vistaClientes").style.display = "block";
-  document.getElementById("vistaVendors").style.display = "none";
-});
-document.getElementById("tabVendors").addEventListener("click", () => {
-  document.getElementById("tabVendors").classList.add("activo");
-  document.getElementById("tabClientes").classList.remove("activo");
-  document.getElementById("vistaVendors").style.display = "block";
-  document.getElementById("vistaClientes").style.display = "none";
-});
+function activarTab(tab){
+  ["Clientes", "Proveedores", "Contactos"].forEach(t => {
+    document.getElementById("tab" + t).classList.toggle("activo", t === tab);
+    document.getElementById("vista" + t).style.display = t === tab ? "block" : "none";
+  });
+}
+document.getElementById("tabClientes").addEventListener("click", () => activarTab("Clientes"));
+document.getElementById("tabProveedores").addEventListener("click", () => activarTab("Proveedores"));
+document.getElementById("tabContactos").addEventListener("click", () => activarTab("Contactos"));
 
 async function conectar(){
   if(msalReadyPromise) await msalReadyPromise;
@@ -941,9 +1049,9 @@ async function conectar(){
     modoConectado = true;
     document.getElementById("estadoConexion").textContent = "Conectado como " + cuentaActiva.name;
     document.getElementById("btnConectar").style.display = "none";
-    document.getElementById("subtitulo").textContent = "Los cambios se guardan en Clientes_Contactos y Vendors_Info.";
+    document.getElementById("subtitulo").textContent = "Los cambios se guardan en Clientes, Proveedores y Contactos.";
     await cargarDatos();
-    renderClientes(); renderVendors();
+    renderTodo();
   } catch(e){ alert("No se pudo conectar: " + (e.message || e)); }
 }
 document.getElementById("btnConectar").addEventListener("click", conectar);
