@@ -300,6 +300,53 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     letter-spacing:.03em;
   }
   .stats-tabla tr:last-child td{border-bottom:none;}
+  .stats-graficos{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(280px,1fr));
+    gap:18px;
+  }
+  .chart-card{
+    background:#fff;
+    border:1px solid var(--borde);
+    border-radius:10px;
+    padding:14px 16px;
+  }
+  .chart-bars{
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+  }
+  .chart-bar-row{
+    display:grid;
+    grid-template-columns:110px 1fr auto;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+  }
+  .chart-bar-label{
+    color:var(--texto-suave);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .chart-bar-track{
+    background:var(--fondo);
+    border-radius:5px;
+    height:14px;
+    overflow:hidden;
+  }
+  .chart-bar-fill{
+    background:var(--azul-sunset);
+    height:100%;
+    border-radius:5px 0 0 5px;
+    min-width:3px;
+  }
+  .chart-bar-valor{
+    text-align:right;
+    color:var(--texto);
+    font-weight:600;
+    white-space:nowrap;
+  }
   .columna{
     width:250px;
     flex-shrink:0;
@@ -636,6 +683,9 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     <select id="filtroVendedor">
       <option value="">Todos los vendedores</option>
     </select>
+    <select id="filtroAnio">
+      <option value="">Todos los años</option>
+    </select>
     <button class="btn-limpiar" id="btnLimpiar" type="button">Limpiar filtros</button>
     <button class="btn-limpiar" id="btnExportarCsv" type="button">⬇️ Exportar CSV</button>
     <a href="./clientes-vendors.html" class="btn-limpiar" style="display:block; text-align:center; text-decoration:none;">📇 Clientes / Vendors</a>
@@ -734,10 +784,6 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           <input type="text" id="f_quarter" readonly disabled placeholder="Se calcula solo">
         </div>
       </div>
-      <div class="campo">
-        <label>Próxima acción</label>
-        <input type="text" id="f_accion" placeholder="Ej: Enviar propuesta técnica">
-      </div>
       <div class="campo" id="wrapMotivoPerdida" style="display:none;">
         <label>Motivo de pérdida</label>
         <select id="f_motivoPerdida"></select>
@@ -768,6 +814,16 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           <input type="text" id="f_contactoTelefono" placeholder="+502 ...">
         </div>
       </div>
+      <div class="fila2">
+        <div class="campo">
+          <label>Próxima acción <span style="font-weight:400;">(opcional)</span></label>
+          <input type="text" id="f_accion" placeholder="Ej: Enviar propuesta técnica">
+        </div>
+        <div class="campo">
+          <label>Fecha de próxima acción <span style="font-weight:400;">(opcional)</span></label>
+          <input type="date" id="f_fechaProximaAccion">
+        </div>
+      </div>
 
       <div class="seccion-titulo">Seguimiento</div>
       <div class="campo">
@@ -778,16 +834,11 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           <datalist id="dl_vendors"></datalist>
           <button type="button" class="btn-secundario" id="btnAgregarVendor">+ Agregar</button>
         </div>
+        <div id="infoContactoVendor" style="font-size:12.5px; color:var(--texto-suave); margin-top:6px;"></div>
       </div>
-      <div class="fila2">
-        <div class="campo">
-          <label>Fecha de primer contacto</label>
-          <input type="date" id="f_fechaPrimerContacto">
-        </div>
-        <div class="campo">
-          <label>Fecha estimada de decisión</label>
-          <input type="date" id="f_fechaEstimadaDecision">
-        </div>
+      <div class="campo">
+        <label>Fecha de primer contacto</label>
+        <input type="date" id="f_fechaPrimerContacto">
       </div>
       <div class="campo">
         <label>Descripción / Notas</label>
@@ -948,6 +999,7 @@ const GRAPH_SCOPES = ["Sites.Selected"];
 const SITE_ID = "sunsettechnology567.sharepoint.com,6a79ba18-8c18-4cb2-8670-f9b4978a9092,e63ee1a3-fcaf-4a3a-b016-845f62f01915";
 const LIST_ID = "ac92e48e-0529-4ac3-91fc-d0eaf212e1e7";
 const LIST_ID_CLIENTES = "7d8a178f-91c7-4088-a89d-4e173faa6d9e"; // lista Clientes_Contactos
+const LIST_ID_VENDORS = "f88ac83e-7197-4772-a140-14f092ed32c0"; // lista Vendors_Info
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 // Valores EXACTOS del choice "Etapa" en SharePoint (confirmados vía REST, 13 ago 2026).
@@ -988,7 +1040,9 @@ const CAMPO_SP = {
   contactoTelefono: "Tel_x00e9_fono",
   vendors: "Vendorsinvolucrados",
   fechaPrimerContacto: "Fechadeprimercontacto",
-  fechaEstimadaDecision: "Fechaestimadadedecisi_x00f3_n",
+  // Columna reutilizada: antes "Fecha estimada de decisión" (retirada, redundante con Fecha estimada
+  // de cierre); su displayName en SharePoint pasó a "Fecha de próxima acción" — mismo InternalName.
+  fechaProximaAccion: "Fechaestimadadedecisi_x00f3_n",
   motivoPerdida: "Motivodep_x00e9_rdida",
   cansCreado: "CANScreado",                  // solo lectura acá — lo escribe Flujo A, no el CRM
   fechaCreacionCans: "Fechadecreaci_x00f3_ndelCANS",  // solo lectura acá — lo escribe Flujo A
@@ -1071,7 +1125,7 @@ function dealDesdeItemGraph(item){
     contactoTelefono: f[CAMPO_SP.contactoTelefono] || "",
     vendors: Array.isArray(f[CAMPO_SP.vendors]) ? f[CAMPO_SP.vendors] : [],
     fechaPrimerContacto: (f[CAMPO_SP.fechaPrimerContacto] || "").slice(0, 10),
-    fechaEstimadaDecision: (f[CAMPO_SP.fechaEstimadaDecision] || "").slice(0, 10),
+    fechaProximaAccion: (f[CAMPO_SP.fechaProximaAccion] || "").slice(0, 10),
     notas: f[CAMPO_SP.notas] || "",
     linkCans: f[CAMPO_SP.linkCans] || "",
     linkPropuesta: f[CAMPO_SP.linkPropuesta] || "",
@@ -1105,7 +1159,7 @@ function camposGraphDesdeDeal(datos){
   if(datos.contactoTelefono !== undefined) fields[CAMPO_SP.contactoTelefono] = datos.contactoTelefono;
   if(datos.vendors !== undefined && datos.vendors.length > 0) fields[CAMPO_SP.vendors] = datos.vendors;
   if(datos.fechaPrimerContacto) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto + "T00:00:00Z";
-  if(datos.fechaEstimadaDecision) fields[CAMPO_SP.fechaEstimadaDecision] = datos.fechaEstimadaDecision + "T00:00:00Z";
+  if(datos.fechaProximaAccion) fields[CAMPO_SP.fechaProximaAccion] = datos.fechaProximaAccion + "T00:00:00Z";
   if(datos.notas !== undefined) fields[CAMPO_SP.notas] = datos.notas;
   if(datos.linkCans !== undefined) fields[CAMPO_SP.linkCans] = datos.linkCans || "";
   if(datos.linkPropuesta !== undefined) fields[CAMPO_SP.linkPropuesta] = datos.linkPropuesta || "";
@@ -1156,6 +1210,35 @@ function actualizarContactosGuardadosUI(){
   };
 }
 document.getElementById("f_cliente").addEventListener("change", actualizarContactosGuardadosUI);
+
+// ---- Base de vendors (lista Vendors_Info) — solo lectura desde el CRM principal, se carga y edita
+// desde clientes-vendors.html. Solo informativo: no cambia el modelo de "Vendors involucrados"
+// (sigue siendo un array de nombres). Best-effort: si falla, el CRM sigue funcionando igual.
+let vendorsInfo = [];
+async function cargarVendorsInfo(){
+  try {
+    const data = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items?expand=fields&$top=1000`);
+    vendorsInfo = (data.value || []).map(it => ({
+      nombre: it.fields.NombreVendor || "",
+      contacto: it.fields.Contacto || "",
+      email: it.fields.Email || "",
+      telefono: it.fields.Telefono || "",
+    }));
+  } catch(e) { console.warn("No se pudo cargar Vendors_Info:", e); }
+}
+function actualizarInfoContactoVendor(){
+  const cont = document.getElementById("infoContactoVendor");
+  if(!cont) return;
+  const infos = vendorsSeleccionados
+    .map(nombre => vendorsInfo.find(v => v.nombre.toLowerCase() === nombre.toLowerCase()))
+    .filter(Boolean)
+    .filter(v => v.contacto || v.email || v.telefono);
+  if(infos.length === 0){ cont.innerHTML = ""; return; }
+  cont.innerHTML = infos.map(v => {
+    const partes = [v.contacto, v.email, v.telefono].filter(Boolean).map(escapeHtml).join(" · ");
+    return `<div>📇 <strong>${escapeHtml(v.nombre)}:</strong> ${partes}</div>`;
+  }).join("");
+}
 
 async function crearDealEnGraph(datos){
   const body = { fields: camposGraphDesdeDeal(datos) };
@@ -1208,6 +1291,7 @@ async function conectarASharePoint(){
     cuentaActiva = resultado.account;
     await cargarDealsDesdeGraph();
     cargarContactosClientes().then(poblarSelects); // best-effort, no bloquea el resto de la conexión
+    cargarVendorsInfo().then(actualizarInfoContactoVendor); // ídem, solo informativo
     modoConectado = true;
     activarUIConectado();
     renderTablero();
@@ -1228,7 +1312,7 @@ document.getElementById("btnConectar").addEventListener("click", conectarAShareP
 // fechaCambioEtapa: fecha del último movimiento de etapa (campo interno, no se carga a mano —
 // lo actualiza la propia app cada vez que una tarjeta cambia de columna).
 const DEALS_DEMO = [
-  { id: "1", titulo: "Claro Guatemala - Renovación SBC", cliente: "CLARO", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "proposal", sucursal: "Argentina", valor: 185000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Cliente pidió incluir soporte 24x7 en la propuesta. Confirmar con Operaciones antes de cotizar.", contactoNombre: "Marco Solís", contactoCargo: "Gerente de Redes", contactoEmail: "marco.solis@claro.gt", contactoTelefono: "+502 5555 1234", vendors: ["NG-Voice", "Xius"], fechaPrimerContacto: "2026-07-15", fechaEstimadaDecision: "2026-09-01", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/CLARO/Guatemala/2026/Renovacion-SBC", linkPropuesta: "", cansCreado: true, fechaCreacionCans: "2026-08-10" },
+  { id: "1", titulo: "Claro Guatemala - Renovación SBC", cliente: "CLARO", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "proposal", sucursal: "Argentina", valor: 185000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Cliente pidió incluir soporte 24x7 en la propuesta. Confirmar con Operaciones antes de cotizar.", contactoNombre: "Marco Solís", contactoCargo: "Gerente de Redes", contactoEmail: "marco.solis@claro.gt", contactoTelefono: "+502 5555 1234", vendors: ["NG-Voice", "Xius"], fechaPrimerContacto: "2026-07-15", fechaProximaAccion: "2026-09-01", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/CLARO/Guatemala/2026/Renovacion-SBC", linkPropuesta: "", cansCreado: true, fechaCreacionCans: "2026-08-10" },
   { id: "2", titulo: "Telefónica Perú - Ampliación IMS", cliente: "TELEFONICA", pais: "Perú", vendedor: "Gustavo Molina", etapa: "forecastcommit", valor: 340000, accion: "Ajustar condiciones comerciales", fecha: "2026-08-15", fechaCambioEtapa: "2026-07-28", notas: "También están evaluando a un competidor. Prioridad alta, quieren cerrar antes de fin de mes.", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS/Propuesta-Tecnica" },
   { id: "3", titulo: "Tech Mahindra - Integratel DRA", cliente: "TECH MAHINDRA", pais: "Colombia", vendedor: "Gustavo Guaspari", etapa: "forecast", valor: 96000, accion: "Follow up propuesta", fecha: "2026-08-20", fechaCambioEtapa: "2026-08-05", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA/Propuesta-Tecnica" },
   { id: "4", titulo: "Entel Chile - Nueva plataforma PCRF", cliente: "ENTEL", pais: "Chile", vendedor: "Gustavo Molina", etapa: "qualified", valor: 210000, accion: "Agendar relevamiento técnico", fecha: "2026-08-25", fechaCambioEtapa: "2026-08-11" },
@@ -1293,6 +1377,11 @@ function clientesUnicos(){
 function paisesUnicos(){
   return [...new Set(deals.map(d => d.pais))].sort();
 }
+// Año de la Fecha estimada de cierre — mismo campo que usa calcularQuarter(). Orden descendente:
+// interesa ver primero el año en curso y los próximos, no el historial viejo.
+function aniosUnicos(){
+  return [...new Set(deals.filter(d => d.fecha).map(d => d.fecha.slice(0, 4)))].sort().reverse();
+}
 
 function poblarSelects(){
   const poblar = (id, valores, etiquetaTodos) => {
@@ -1305,6 +1394,7 @@ function poblarSelects(){
   poblar("filtroVendedor", vendedoresUnicos(), "Todos los vendedores");
   poblar("filtroCliente", clientesUnicos(), "Todos los clientes");
   poblar("filtroPais", paisesUnicos(), "Todos los países");
+  poblar("filtroAnio", aniosUnicos(), "Todos los años");
 
   // Cliente y País son selects cerrados (a pedido de Patricio, para evitar que cada comercial
   // cargue el mismo cliente con mayúsculas/minúsculas o espacios distintos). Las opciones nuevas
@@ -1346,6 +1436,7 @@ function pasaFiltros(d, filtros){
   if(filtros.vendedor && d.vendedor !== filtros.vendedor) return false;
   if(filtros.cliente && d.cliente !== filtros.cliente) return false;
   if(filtros.pais && d.pais !== filtros.pais) return false;
+  if(filtros.anio && (!d.fecha || d.fecha.slice(0, 4) !== filtros.anio)) return false;
   if(filtros.busqueda){
     const q = filtros.busqueda.toLowerCase();
     if(!d.titulo.toLowerCase().includes(q) && !d.cliente.toLowerCase().includes(q)) return false;
@@ -1353,10 +1444,22 @@ function pasaFiltros(d, filtros){
   return true;
 }
 
+// Filtros de la barra lateral — compartidos por el tablero, Estadísticas y la exportación a CSV,
+// así los tres quedan siempre consistentes con lo que el usuario tiene tildado.
+function leerFiltros(){
+  return {
+    busqueda: document.getElementById("buscador").value.trim(),
+    cliente: document.getElementById("filtroCliente").value,
+    pais: document.getElementById("filtroPais").value,
+    vendedor: document.getElementById("filtroVendedor").value,
+    anio: document.getElementById("filtroAnio").value,
+  };
+}
+
 // ---- Vencidos (badge sidebar) + vista de Estadísticas ----
 function actualizarAlertaVencidos(){
   const el = document.getElementById("alertaVencidos");
-  const vencidos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa) && fechaVencida(d.fecha)).length;
+  const vencidos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa) && fechaVencida(d.fechaProximaAccion)).length;
   if(vencidos > 0){
     el.style.display = "block";
     el.textContent = vencidos === 1 ? "⚠ 1 oportunidad vencida" : `⚠ ${vencidos} oportunidades vencidas`;
@@ -1365,7 +1468,22 @@ function actualizarAlertaVencidos(){
   }
 }
 
-function renderEstadisticas(){
+// Barras horizontales simples en HTML/CSS (sin librerías externas — la red de Sunset bloquea CDNs,
+// ver nota histórica junto a la carga de MSAL). `datos` = [{label, valor}], ya ordenado por el caller.
+function renderBarras(datos, formatoValor){
+  const fmt = formatoValor || (v => v);
+  if(datos.length === 0) return `<div style="font-size:12.5px; color:var(--texto-suave);">Sin datos para graficar.</div>`;
+  const max = Math.max(1, ...datos.map(d => d.valor));
+  return `<div class="chart-bars">` + datos.map(d => `
+    <div class="chart-bar-row">
+      <div class="chart-bar-label" title="${escapeHtml(d.label)}">${escapeHtml(d.label)}</div>
+      <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${Math.max(2, Math.round(d.valor / max * 100))}%;"></div></div>
+      <div class="chart-bar-valor">${fmt(d.valor)}</div>
+    </div>
+  `).join("") + `</div>`;
+}
+
+function renderEstadisticas(filtros){
   const cont = document.getElementById("vistaEstadisticas");
   if(!modoConectado && deals.length === 0){
     cont.innerHTML = `
@@ -1377,27 +1495,70 @@ function renderEstadisticas(){
     return;
   }
 
-  const abiertos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
-  const ganados = deals.filter(d => d.etapa === "won");
-  const perdidos = deals.filter(d => d.etapa === "lost");
+  // Mismos filtros de la barra lateral (cliente/país/vendedor/año/búsqueda) que el tablero —
+  // así las estadísticas siempre reflejan el recorte que el usuario tiene armado.
+  const dealsF = filtros ? deals.filter(d => pasaFiltros(d, filtros)) : deals;
+  const hayFiltrosActivos = filtros && Object.values(filtros).some(v => v);
+
+  const abiertos = dealsF.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
+  const ganados = dealsF.filter(d => d.etapa === "won");
+  const perdidos = dealsF.filter(d => d.etapa === "lost");
   const sumaValor = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0), 0);
   const cierres = ganados.length + perdidos.length;
   const tasaConversion = cierres > 0 ? Math.round((ganados.length / cierres) * 100) : null;
-  const vencidos = deals.filter(d => !ETAPAS_CIERRE.includes(d.etapa) && fechaVencida(d.fecha)).length;
+  const vencidos = dealsF.filter(d => !ETAPAS_CIERRE.includes(d.etapa) && fechaVencida(d.fechaProximaAccion)).length;
+
+  if(dealsF.length === 0){
+    cont.innerHTML = `
+      <div class="stats-seccion-titulo" style="margin-bottom:12px;">${hayFiltrosActivos ? "No hay oportunidades que coincidan con los filtros elegidos." : "Todavía no hay oportunidades cargadas."}</div>
+    `;
+    return;
+  }
 
   const filasEtapa = ETAPAS.map(etapa => {
-    const dealsEtapa = deals.filter(d => d.etapa === etapa.id);
+    const dealsEtapa = dealsF.filter(d => d.etapa === etapa.id);
     const dias = dealsEtapa.map(d => diasEnEtapa(d.fechaCambioEtapa)).filter(x => x !== null);
     const promedioDias = dias.length > 0 ? Math.round(dias.reduce((s, x) => s + x, 0) / dias.length) : null;
     return `<tr><td>${escapeHtml(etapa.nombre)}</td><td>${dealsEtapa.length}</td><td>${fmtUSD(sumaValor(dealsEtapa))}</td><td>${promedioDias === null ? "—" : promedioDias + " días"}</td></tr>`;
   }).join("");
 
-  const filasVendedor = vendedoresUnicos().map(v => {
-    const dealsVendedor = deals.filter(d => d.vendedor === v);
-    const abiertosV = dealsVendedor.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
-    const ganadosV = dealsVendedor.filter(d => d.etapa === "won");
-    return `<tr><td>${escapeHtml(v)}</td><td>${abiertosV.length}</td><td>${fmtUSD(sumaValor(abiertosV))}</td><td>${ganadosV.length}</td><td>${fmtUSD(sumaValor(ganadosV))}</td></tr>`;
-  }).join("");
+  const filasPor = (valores, obtenerValor) => valores.map(v => {
+    const dealsV = dealsF.filter(d => obtenerValor(d) === v);
+    const abiertosV = dealsV.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
+    const ganadosV = dealsV.filter(d => d.etapa === "won");
+    return { v, dealsV, abiertosV, ganadosV };
+  }).filter(x => x.dealsV.length > 0);
+
+  const filaHtml = ({ v, abiertosV, ganadosV }) =>
+    `<tr><td>${escapeHtml(v)}</td><td>${abiertosV.length}</td><td>${fmtUSD(sumaValor(abiertosV))}</td><td>${ganadosV.length}</td><td>${fmtUSD(sumaValor(ganadosV))}</td></tr>`;
+
+  const porVendedor = filasPor([...new Set(dealsF.map(d => d.vendedor))].sort(), d => d.vendedor);
+  const porCliente = filasPor([...new Set(dealsF.map(d => d.cliente))].sort(), d => d.cliente);
+  const porPais = filasPor([...new Set(dealsF.map(d => d.pais))].sort(), d => d.pais);
+
+  const tablaHtml = (titulo, columna, filas) => `
+    <div>
+      <div class="stats-seccion-titulo">${titulo}</div>
+      <table class="stats-tabla">
+        <thead><tr><th>${columna}</th><th>Abiertas</th><th>Valor abierto</th><th>Ganadas</th><th>Valor ganado</th></tr></thead>
+        <tbody>${filas.length > 0 ? filas.map(filaHtml).join("") : '<tr><td colspan="5" style="text-align:center;color:var(--texto-suave);">Sin datos</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+
+  // Gráficos: cantidad abierta por etapa, y valor de pipeline abierto por vendedor / país.
+  // Se limita a los N valores más altos donde la lista puede ser larga (país), para que la barra siga siendo legible.
+  const datosEtapa = ETAPAS.map(e => ({ label: e.nombre.replace(/^\d+\.\s*/, ""), valor: abiertos.filter(d => d.etapa === e.id).length }))
+    .filter(d => d.valor > 0);
+  const datosVendedor = porVendedor
+    .map(x => ({ label: x.v, valor: sumaValor(x.abiertosV) }))
+    .filter(x => x.valor > 0)
+    .sort((a, b) => b.valor - a.valor);
+  const datosPais = porPais
+    .map(x => ({ label: x.v, valor: sumaValor(x.abiertosV) }))
+    .filter(x => x.valor > 0)
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 10);
 
   cont.innerHTML = `
     <div class="stats-resumen">
@@ -1405,8 +1566,24 @@ function renderEstadisticas(){
       <div class="stats-card"><div class="etiqueta">Ganadas</div><div class="valor-grande">${ganados.length}</div><div class="etiqueta">${fmtUSD(sumaValor(ganados))}</div></div>
       <div class="stats-card"><div class="etiqueta">Perdidas</div><div class="valor-grande">${perdidos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(perdidos))}</div></div>
       <div class="stats-card"><div class="etiqueta">Tasa de conversión</div><div class="valor-grande">${tasaConversion === null ? "—" : tasaConversion + "%"}</div><div class="etiqueta">${cierres} cierre${cierres === 1 ? "" : "s"}</div></div>
-      <div class="stats-card"><div class="etiqueta">Vencidas</div><div class="valor-grande" style="color:var(--rojo);">${vencidos}</div><div class="etiqueta">cierre estimado</div></div>
+      <div class="stats-card"><div class="etiqueta">Vencidas</div><div class="valor-grande" style="color:var(--rojo);">${vencidos}</div><div class="etiqueta">próxima acción</div></div>
     </div>
+
+    <div class="stats-graficos">
+      <div class="chart-card">
+        <div class="stats-seccion-titulo">Oportunidades abiertas por etapa</div>
+        ${renderBarras(datosEtapa, v => v)}
+      </div>
+      <div class="chart-card">
+        <div class="stats-seccion-titulo">Valor de pipeline abierto por vendedor</div>
+        ${renderBarras(datosVendedor, fmtUSD)}
+      </div>
+      <div class="chart-card">
+        <div class="stats-seccion-titulo">Valor de pipeline abierto por país ${datosPais.length === 10 ? "(top 10)" : ""}</div>
+        ${renderBarras(datosPais, fmtUSD)}
+      </div>
+    </div>
+
     <div>
       <div class="stats-seccion-titulo">Por etapa</div>
       <table class="stats-tabla">
@@ -1414,13 +1591,9 @@ function renderEstadisticas(){
         <tbody>${filasEtapa}</tbody>
       </table>
     </div>
-    <div>
-      <div class="stats-seccion-titulo">Por vendedor</div>
-      <table class="stats-tabla">
-        <thead><tr><th>Vendedor</th><th>Abiertas</th><th>Valor abierto</th><th>Ganadas</th><th>Valor ganado</th></tr></thead>
-        <tbody>${filasVendedor || '<tr><td colspan="5" style="text-align:center;color:var(--texto-suave);">Sin datos</td></tr>'}</tbody>
-      </table>
-    </div>
+    ${tablaHtml("Por vendedor", "Vendedor", porVendedor)}
+    ${tablaHtml("Por cliente", "Cliente", porCliente)}
+    ${tablaHtml("Por país", "País", porPais)}
   `;
 }
 
@@ -1431,23 +1604,19 @@ function cambiarVista(vista){
   document.getElementById("tablero").style.display = vista === "tablero" ? "" : "none";
   document.getElementById("resultadosInfo").style.display = vista === "tablero" ? "" : "none";
   document.getElementById("vistaEstadisticas").style.display = vista === "estadisticas" ? "block" : "none";
-  if(vista === "estadisticas") renderEstadisticas();
+  if(vista === "estadisticas") renderEstadisticas(leerFiltros());
 }
 document.getElementById("navTablero").addEventListener("click", () => cambiarVista("tablero"));
 document.getElementById("navEstadisticas").addEventListener("click", () => cambiarVista("estadisticas"));
 
 function renderTablero(){
-  // Estas dos vistas dependen solo de `deals`/`modoConectado`, no de los filtros del tablero —
-  // se recalculan siempre que se llama a renderTablero(), sin importar la rama que siga abajo.
-  actualizarAlertaVencidos();
-  if(vistaActual === "estadisticas") renderEstadisticas();
+  const filtros = leerFiltros();
 
-  const filtros = {
-    busqueda: document.getElementById("buscador").value.trim(),
-    cliente: document.getElementById("filtroCliente").value,
-    pais: document.getElementById("filtroPais").value,
-    vendedor: document.getElementById("filtroVendedor").value,
-  };
+  // La alerta de vencidos no depende de los filtros (se calcula siempre sobre todos los deals) —
+  // se recalcula siempre que se llama a renderTablero(), sin importar la rama que siga abajo.
+  actualizarAlertaVencidos();
+  if(vistaActual === "estadisticas") renderEstadisticas(filtros);
+
   const tablero = document.getElementById("tablero");
   tablero.innerHTML = "";
 
@@ -1543,13 +1712,14 @@ function crearTarjeta(d){
   el.draggable = true;
   el.dataset.id = d.id;
 
-  const vencida = fechaVencida(d.fecha);
+  const vencida = fechaVencida(d.fechaProximaAccion);
   el.innerHTML = `
     <div class="titulo">${escapeHtml(d.titulo)}</div>
     <div class="cliente">${escapeHtml(d.cliente)} · ${escapeHtml(d.pais)}</div>
     <div class="fila"><span>Valor</span><span class="valor">${fmtUSD(d.valor)}</span></div>
-    ${d.fecha ? `<div class="fila"><span>Cierre est.</span><span class="${vencida ? "vencida" : ""}">${fmtFecha(d.fecha)} · ${calcularQuarter(d.fecha)}</span></div>` : ""}
+    ${d.fecha ? `<div class="fila"><span>Cierre est.</span><span>${fmtFecha(d.fecha)} · ${calcularQuarter(d.fecha)}</span></div>` : ""}
     ${d.upside ? `<div class="fila"><span></span><span style="color:var(--azul-sunset); font-weight:600;">↑ Upside</span></div>` : ""}
+    ${d.fechaProximaAccion ? `<div class="fila"><span>Próx. acción</span><span class="${vencida ? "vencida" : ""}">${fmtFecha(d.fechaProximaAccion)}</span></div>` : ""}
     <div class="fila"><span>En esta etapa</span><span class="dias-etapa">${textoDiasEtapa(d.fechaCambioEtapa)}</span></div>
     ${d.notas ? `<div class="notas">${escapeHtml(d.notas)}</div>` : ""}
     <span class="badge-vendedor">${escapeHtml(d.vendedor)}</span>${d.sucursal ? `<span class="badge-sucursal">${escapeHtml(d.sucursal)}</span>` : ""}${d.cansCreado ? `<span class="badge-cans-creado">✓ CANS</span>` : ""}
@@ -1817,7 +1987,7 @@ function abrirModal(id){
     vendorsSeleccionados = [...(d.vendors || [])];
     renderChipsVendors();
     document.getElementById("f_fechaPrimerContacto").value = d.fechaPrimerContacto || "";
-    document.getElementById("f_fechaEstimadaDecision").value = d.fechaEstimadaDecision || "";
+    document.getElementById("f_fechaProximaAccion").value = d.fechaProximaAccion || "";
     document.getElementById("f_notas").value = d.notas || "";
     document.getElementById("f_linkCans").value = d.linkCans || "";
     document.getElementById("f_linkPropuesta").value = d.linkPropuesta || "";
@@ -1874,6 +2044,7 @@ function renderChipsVendors(){
       renderChipsVendors();
     });
   });
+  actualizarInfoContactoVendor();
 }
 
 function agregarVendorDesdeInput(){
@@ -1953,7 +2124,7 @@ document.getElementById("form").addEventListener("submit", async e => {
     contactoTelefono: document.getElementById("f_contactoTelefono").value.trim(),
     vendors: [...vendorsSeleccionados],
     fechaPrimerContacto: document.getElementById("f_fechaPrimerContacto").value,
-    fechaEstimadaDecision: document.getElementById("f_fechaEstimadaDecision").value,
+    fechaProximaAccion: document.getElementById("f_fechaProximaAccion").value,
     notas: document.getElementById("f_notas").value.trim(),
     linkCans: document.getElementById("f_linkCans").value.trim(),
     linkPropuesta: document.getElementById("f_linkPropuesta").value.trim(),
@@ -2026,6 +2197,7 @@ document.getElementById("form").addEventListener("submit", async e => {
 document.getElementById("filtroVendedor").addEventListener("change", renderTablero);
 document.getElementById("filtroCliente").addEventListener("change", renderTablero);
 document.getElementById("filtroPais").addEventListener("change", renderTablero);
+document.getElementById("filtroAnio").addEventListener("change", renderTablero);
 document.getElementById("buscador").addEventListener("input", renderTablero);
 
 document.getElementById("btnLimpiar").addEventListener("click", () => {
@@ -2033,6 +2205,7 @@ document.getElementById("btnLimpiar").addEventListener("click", () => {
   document.getElementById("filtroCliente").value = "";
   document.getElementById("filtroPais").value = "";
   document.getElementById("filtroVendedor").value = "";
+  document.getElementById("filtroAnio").value = "";
   renderTablero();
 });
 
@@ -2043,12 +2216,7 @@ function escaparCsv(valor){
 }
 
 function exportarCSV(){
-  const filtros = {
-    busqueda: document.getElementById("buscador").value.trim(),
-    cliente: document.getElementById("filtroCliente").value,
-    pais: document.getElementById("filtroPais").value,
-    vendedor: document.getElementById("filtroVendedor").value,
-  };
+  const filtros = leerFiltros();
   const filas = deals.filter(d => pasaFiltros(d, filtros));
   const columnas = [
     ["Título", d => d.titulo],
@@ -2060,11 +2228,13 @@ function exportarCSV(){
     ["Valor estimado (USD)", d => d.valor || 0],
     ["Probabilidad (%)", d => d.probabilidad || ""],
     ["Próxima acción", d => d.accion === "—" ? "" : d.accion],
+    ["Fecha de próxima acción", d => d.fechaProximaAccion ? fmtFecha(d.fechaProximaAccion) : ""],
     ["Fecha estimada de cierre", d => d.fecha ? fmtFecha(d.fecha) : ""],
     ["Quarter", d => calcularQuarter(d.fecha)],
     ["Upside", d => d.upside ? "Sí" : "No"],
     ["Días en etapa actual", d => { const n = diasEnEtapa(d.fechaCambioEtapa); return n === null ? "" : n; }],
     ["Vendors involucrados", d => (d.vendors || []).join("; ")],
+    ["Fecha de primer contacto", d => d.fechaPrimerContacto ? fmtFecha(d.fechaPrimerContacto) : ""],
     ["Motivo de pérdida", d => d.motivoPerdida || ""],
     ["CANS creado", d => d.cansCreado ? "Sí" : "No"],
   ];
@@ -2151,6 +2321,7 @@ async function iniciarApp(){
       try {
         await cargarDealsDesdeGraph();
         cargarContactosClientes().then(poblarSelects); // best-effort, no bloquea el resto de la conexión
+    cargarVendorsInfo().then(actualizarInfoContactoVendor); // ídem, solo informativo
         modoConectado = true;
         activarUIConectado();
       } catch (e) {
