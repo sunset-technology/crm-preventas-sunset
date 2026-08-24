@@ -729,7 +729,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
         <div class="campo"><label>Teléfono</label><input type="text" id="ct_telefono"></div>
       </div>
       <div class="fila2">
-        <div class="campo"><label>País</label><input type="text" id="ct_pais"></div>
+        <div class="campo"><label>País <span style="font-weight:400;">(obligatorio para contactos de Cliente — algunos clientes tienen filiales por país, ej. Claro Guatemala vs. Claro Argentina, y el CRM usa este dato para no mezclar sus contactos)</span></label><input type="text" id="ct_pais"></div>
         <div class="campo"><label>Ubicación</label><input type="text" id="ct_ubicacion" placeholder="Ciudad / oficina"></div>
       </div>
       <div class="campo"><label>Notas</label><textarea id="ct_notas" rows="2"></textarea></div>
@@ -994,6 +994,14 @@ document.getElementById("formContacto").addEventListener("submit", async e => {
   };
   if(!fields.TipoEmpresa || !fields.Empresa){
     alert("Elegí el tipo de empresa y la empresa antes de guardar.");
+    return;
+  }
+  // País obligatorio para contactos de Cliente: sin este dato, el CRM no puede diferenciar filiales
+  // del mismo cliente (ej. Claro Guatemala vs. Claro Argentina) y el contacto quedaría inutilizable
+  // como opción en el deal (24 ago 2026, a pedido de Patricio).
+  if(fields.TipoEmpresa === "Cliente" && !fields.Pais){
+    alert("El País es obligatorio para contactos de Cliente (para diferenciar filiales del mismo cliente, ej. Claro Guatemala vs. Claro Argentina).");
+    document.getElementById("ct_pais").focus();
     return;
   }
   try {

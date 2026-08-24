@@ -1275,9 +1275,13 @@ function actualizarContactosGuardadosUI(){
   const pais = document.getElementById("f_pais").value.trim();
   const wrap = document.getElementById("wrapContactoGuardado");
   const sel = document.getElementById("f_contactoGuardado");
+  // Match estricto por país: un cliente con varias filiales (ej. Claro Guatemala vs. Claro Argentina)
+  // no puede mezclar contactos entre sí. Si el deal tiene País elegido, un contacto SIN país cargado
+  // en la base tampoco se ofrece como opción (antes se colaba como comodín para cualquier país —
+  // corregido 24 ago 2026, a pedido de Patricio).
   const opciones = contactosClientes.filter(c =>
     c.empresa.toLowerCase() === cliente.toLowerCase() && c.nombre &&
-    (!pais || !c.pais || c.pais.toLowerCase() === pais.toLowerCase())
+    (!pais || (c.pais && c.pais.toLowerCase() === pais.toLowerCase()))
   );
   if(!cliente || opciones.length === 0){ wrap.style.display = "none"; return; }
   wrap.style.display = "block";
