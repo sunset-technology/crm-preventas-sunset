@@ -743,6 +743,10 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           <select id="f_pais" required><option value="">Elegí un país…</option></select>
         </div>
       </div>
+      <div class="campo">
+        <label>Cliente final <span style="font-weight:400;">(opcional — completar solo si "Cliente" es un intermediario, ej. Tech Mahindra)</span></label>
+        <select id="f_clienteFinal"><option value="">— No aplica / cliente directo —</option></select>
+      </div>
       <div class="fila2">
         <div class="campo">
           <label>Vendedor / Responsable comercial</label>
@@ -843,26 +847,6 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
         </div>
       </div>
       <div id="wrapContactosProveedor" style="display:none;"></div>
-      <div class="fila2">
-        <div class="campo">
-          <label>Contacto del proveedor</label>
-          <input type="text" id="f_contactoProveedorNombre" placeholder="Ej: Stefan Weber">
-        </div>
-        <div class="campo">
-          <label>Cargo</label>
-          <input type="text" id="f_contactoProveedorCargo">
-        </div>
-      </div>
-      <div class="fila2">
-        <div class="campo">
-          <label>Email</label>
-          <input type="email" id="f_contactoProveedorEmail">
-        </div>
-        <div class="campo">
-          <label>Teléfono</label>
-          <input type="text" id="f_contactoProveedorTelefono">
-        </div>
-      </div>
       <div class="campo">
         <label>Fecha de primer contacto</label>
         <input type="date" id="f_fechaPrimerContacto">
@@ -1049,6 +1033,10 @@ ETAPA_DESDE_SP["Unqualified"] = "lead";
 const CAMPO_SP = {
   titulo: "Title",
   cliente: "Cliente",
+  // Cliente final (24 ago 2026): completar solo cuando "Cliente" es un intermediario (ej. Tech
+  // Mahindra) y el cliente que realmente usa el servicio es otro. Texto libre validado por el
+  // desplegable de la app, no un choice de SharePoint — evita el drift de "promover" un choice más.
+  clienteFinal: "ClienteFinal",
   pais: "Pa_x00ed_s",
   vendedor: "Vendedor_x002f_Responsablecomerc",
   sucursal: "SucursalSunsetresponsable",
@@ -1063,12 +1051,11 @@ const CAMPO_SP = {
   contactoCargo: "Cargo",
   contactoEmail: "Email",
   contactoTelefono: "Tel_x00e9_fono",
-  // Contacto de proveedor guardado en el deal (21 ago 2026) — columnas nuevas, creadas sin acentos
-  // en el nombre a propósito para que el InternalName de Graph sea igual al DisplayName.
-  contactoProveedorNombre: "ContactoProveedorNombre",
-  contactoProveedorCargo: "ContactoProveedorCargo",
-  contactoProveedorEmail: "ContactoProveedorEmail",
-  contactoProveedorTelefono: "ContactoProveedorTelefono",
+  // Contactos de proveedor (24 ago 2026): un contacto por cada proveedor del deal (hasta 5), guardados
+  // como JSON en una sola columna multilínea — reemplaza a las 4 columnas de un único contacto
+  // compartido (ContactoProveedorNombre/Cargo/Email/Telefono, creadas el 21 ago 2026), que quedan
+  // huérfanas sin usar (no se borran).
+  contactosProveedoresJSON: "ContactosProveedoresJSON",
   vendors: "Vendorsinvolucrados",
   fechaPrimerContacto: "Fechadeprimercontacto",
   // Columna reutilizada: antes "Fecha estimada de decisión" (retirada, redundante con Fecha estimada
@@ -1146,6 +1133,19 @@ async function graphFetch(path, opciones = {}){
   return resp.json();
 }
 
+// Los contactos de proveedor se guardan como JSON serializado en una sola columna (multilínea) de
+// SharePoint — parseo defensivo: cualquier valor inválido/vacío/viejo (o texto suelto de una prueba
+// manual en SharePoint) simplemente resulta en "sin contactos", nunca rompe la carga del deal.
+function parsearContactosProveedoresJSON(valor){
+  if(!valor) return [];
+  try {
+    const parsed = JSON.parse(valor);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 function dealDesdeItemGraph(item){
   const f = item.fields || {};
   return {
@@ -1153,6 +1153,7 @@ function dealDesdeItemGraph(item){
     numeroDeal: f[CAMPO_SP.numeroDeal] || "",
     titulo: f[CAMPO_SP.titulo] || "",
     cliente: f[CAMPO_SP.cliente] || "",
+    clienteFinal: f[CAMPO_SP.clienteFinal] || "",
     pais: f[CAMPO_SP.pais] || "",
     vendedor: f[CAMPO_SP.vendedor] || "",
     etapa: ETAPA_DESDE_SP[f.Etapa] || "universe",
@@ -1166,10 +1167,7 @@ function dealDesdeItemGraph(item){
     contactoCargo: f[CAMPO_SP.contactoCargo] || "",
     contactoEmail: f[CAMPO_SP.contactoEmail] || "",
     contactoTelefono: f[CAMPO_SP.contactoTelefono] || "",
-    contactoProveedorNombre: f[CAMPO_SP.contactoProveedorNombre] || "",
-    contactoProveedorCargo: f[CAMPO_SP.contactoProveedorCargo] || "",
-    contactoProveedorEmail: f[CAMPO_SP.contactoProveedorEmail] || "",
-    contactoProveedorTelefono: f[CAMPO_SP.contactoProveedorTelefono] || "",
+    contactosProveedores: parsearContactosProveedoresJSON(f[CAMPO_SP.contactosProveedoresJSON]),
     vendors: Array.isArray(f[CAMPO_SP.vendors]) ? f[CAMPO_SP.vendors] : [],
     fechaPrimerContacto: (f[CAMPO_SP.fechaPrimerContacto] || "").slice(0, 10),
     fechaProximaAccion: (f[CAMPO_SP.fechaProximaAccion] || "").slice(0, 10),
@@ -1190,6 +1188,7 @@ function camposGraphDesdeDeal(datos){
   if(datos.numeroDeal !== undefined) fields[CAMPO_SP.numeroDeal] = datos.numeroDeal;
   if(datos.titulo !== undefined) fields[CAMPO_SP.titulo] = datos.titulo;
   if(datos.cliente !== undefined) fields[CAMPO_SP.cliente] = datos.cliente;
+  if(datos.clienteFinal !== undefined) fields[CAMPO_SP.clienteFinal] = datos.clienteFinal || "";
   if(datos.pais !== undefined) fields[CAMPO_SP.pais] = datos.pais;
   if(datos.vendedor !== undefined) fields[CAMPO_SP.vendedor] = datos.vendedor;
   if(datos.etapa !== undefined) fields.Etapa = ETAPA_SP_VALUE[datos.etapa] || datos.etapa;
@@ -1205,10 +1204,7 @@ function camposGraphDesdeDeal(datos){
   if(datos.contactoCargo !== undefined) fields[CAMPO_SP.contactoCargo] = datos.contactoCargo;
   if(datos.contactoEmail !== undefined) fields[CAMPO_SP.contactoEmail] = datos.contactoEmail;
   if(datos.contactoTelefono !== undefined) fields[CAMPO_SP.contactoTelefono] = datos.contactoTelefono;
-  if(datos.contactoProveedorNombre !== undefined) fields[CAMPO_SP.contactoProveedorNombre] = datos.contactoProveedorNombre;
-  if(datos.contactoProveedorCargo !== undefined) fields[CAMPO_SP.contactoProveedorCargo] = datos.contactoProveedorCargo;
-  if(datos.contactoProveedorEmail !== undefined) fields[CAMPO_SP.contactoProveedorEmail] = datos.contactoProveedorEmail;
-  if(datos.contactoProveedorTelefono !== undefined) fields[CAMPO_SP.contactoProveedorTelefono] = datos.contactoProveedorTelefono;
+  if(datos.contactosProveedores !== undefined) fields[CAMPO_SP.contactosProveedoresJSON] = JSON.stringify(datos.contactosProveedores || []);
   // MultiChoice: Graph necesita la anotación @odata.type junto al array, si no tira 400 genérico
   // "Invalid request" sin más detalle (confirmado en vivo, 24 ago 2026) — aunque los valores sean
   // válidos y el array venga bien formado. Se escribe siempre que datos.vendors venga definido,
@@ -1299,37 +1295,68 @@ function actualizarContactosGuardadosUI(){
 document.getElementById("f_cliente").addEventListener("change", actualizarContactosGuardadosUI);
 document.getElementById("f_pais").addEventListener("change", actualizarContactosGuardadosUI);
 
-// Contacto de proveedor guardado en el deal — a diferencia de "Proveedores involucrados" (que sigue
-// siendo solo un array de nombres), este contacto puntual SÍ se guarda en el deal (campos
-// f_contactoProveedor*, un solo contacto compartido). Un desplegable POR CADA proveedor elegido
-// (no uno combinado) para no mezclar contactos de empresas distintas en una sola lista larga —
-// mismo criterio que el filtro por País del contacto de Cliente. Elegir cualquiera de ellos llena
-// los mismos 4 campos (el último que se elija es el que queda guardado).
+// Un bloque de contacto completo (editable) por cada proveedor seleccionado en el deal — no un set
+// único compartido. Si el proveedor tiene contactos guardados en la base, se ofrece además un
+// desplegable rápido para precargar el bloque; el usuario puede editarlo igual después a mano.
 function actualizarContactoProveedorGuardadoUI(){
   const wrap = document.getElementById("wrapContactosProveedor");
-  const bloques = vendorsSeleccionados
-    .map(nombre => ({ nombre, opciones: contactosProveedor.filter(c => c.empresa.toLowerCase() === nombre.toLowerCase() && c.nombre) }))
-    .filter(b => b.opciones.length > 0);
-  if(bloques.length === 0){ wrap.style.display = "none"; wrap.innerHTML = ""; return; }
+  if(vendorsSeleccionados.length === 0){ wrap.style.display = "none"; wrap.innerHTML = ""; return; }
   wrap.style.display = "block";
-  wrap.innerHTML = bloques.map((b, bi) => `
-    <div class="campo">
-      <label>Contacto guardado de ${escapeHtml(b.nombre)}</label>
-      <select data-bloque="${bi}">
-        <option value="">— Elegir de la base de datos —</option>
-        ${b.opciones.map((c, i) => `<option value="${i}">${escapeHtml(c.nombre)}${c.cargo ? " — " + escapeHtml(c.cargo) : ""}</option>`).join("")}
-      </select>
+  wrap.innerHTML = vendorsSeleccionados.map((nombreVendor, vi) => {
+    const c = contactosProveedorPorVendor[nombreVendor] || { nombre: "", cargo: "", email: "", telefono: "" };
+    const opcionesGuardadas = contactosProveedor.filter(x => x.empresa.toLowerCase() === nombreVendor.toLowerCase() && x.nombre);
+    return `
+    <div class="bloque-contacto-proveedor" style="border:1px solid var(--borde, #ddd); border-radius:8px; padding:10px; margin-bottom:10px;">
+      <div style="font-weight:600; margin-bottom:6px;">Contacto de ${escapeHtml(nombreVendor)}</div>
+      ${opcionesGuardadas.length > 0 ? `
+      <div class="campo">
+        <label>Contacto guardado</label>
+        <select data-guardado="${vi}">
+          <option value="">— Elegir de la base de datos —</option>
+          ${opcionesGuardadas.map((oc, i) => `<option value="${i}">${escapeHtml(oc.nombre)}${oc.cargo ? " — " + escapeHtml(oc.cargo) : ""}</option>`).join("")}
+        </select>
+      </div>` : ""}
+      <div class="fila2">
+        <div class="campo">
+          <label>Nombre</label>
+          <input type="text" data-campo="nombre" data-vendor="${vi}" value="${escapeHtml(c.nombre)}" placeholder="Ej: Stefan Weber">
+        </div>
+        <div class="campo">
+          <label>Cargo</label>
+          <input type="text" data-campo="cargo" data-vendor="${vi}" value="${escapeHtml(c.cargo)}">
+        </div>
+      </div>
+      <div class="fila2">
+        <div class="campo">
+          <label>Email</label>
+          <input type="email" data-campo="email" data-vendor="${vi}" value="${escapeHtml(c.email)}">
+        </div>
+        <div class="campo">
+          <label>Teléfono</label>
+          <input type="text" data-campo="telefono" data-vendor="${vi}" value="${escapeHtml(c.telefono)}">
+        </div>
+      </div>
     </div>
-  `).join("");
-  wrap.querySelectorAll("select[data-bloque]").forEach(sel => {
-    const b = bloques[Number(sel.dataset.bloque)];
+  `; }).join("");
+
+  wrap.querySelectorAll("input[data-campo]").forEach(input => {
+    input.addEventListener("input", () => {
+      const nombreVendor = vendorsSeleccionados[Number(input.dataset.vendor)];
+      if(!nombreVendor) return;
+      const actual = contactosProveedorPorVendor[nombreVendor] || { nombre: "", cargo: "", email: "", telefono: "" };
+      actual[input.dataset.campo] = input.value;
+      contactosProveedorPorVendor[nombreVendor] = actual;
+    });
+  });
+  wrap.querySelectorAll("select[data-guardado]").forEach(sel => {
+    const vi = Number(sel.dataset.guardado);
+    const nombreVendor = vendorsSeleccionados[vi];
+    const opcionesGuardadas = contactosProveedor.filter(x => x.empresa.toLowerCase() === nombreVendor.toLowerCase() && x.nombre);
     sel.onchange = () => {
       if(sel.value === "") return;
-      const c = b.opciones[Number(sel.value)];
-      document.getElementById("f_contactoProveedorNombre").value = c.nombre;
-      document.getElementById("f_contactoProveedorCargo").value = c.cargo;
-      document.getElementById("f_contactoProveedorEmail").value = c.email;
-      document.getElementById("f_contactoProveedorTelefono").value = c.telefono;
+      const c = opcionesGuardadas[Number(sel.value)];
+      contactosProveedorPorVendor[nombreVendor] = { nombre: c.nombre, cargo: c.cargo, email: c.email, telefono: c.telefono };
+      actualizarContactoProveedorGuardadoUI(); // re-render para reflejar los valores en los inputs
     };
   });
 }
@@ -1419,6 +1446,10 @@ const DEALS_DEMO = [
 let deals = [];
 let nextId = 10;
 let vendorsSeleccionados = [];  // vendors del deal que se está editando/creando, mientras el modal está abierto
+// Contacto de cada proveedor seleccionado, keyed por nombre de proveedor: { nombre, cargo, email, telefono }.
+// Reemplaza a los 4 campos únicos viejos (ContactoProveedorNombre/Cargo/Email/Telefono) — con hasta
+// 5 proveedores por deal, cada uno necesita su propio contacto (24 ago 2026, a pedido de Patricio).
+let contactosProveedorPorVendor = {};
 let editandoId = null;
 let etapaOriginal = null;
 let pendingConfirm = null;    // { dealId, etapaDestino } mientras espera confirmación de cierre
@@ -1483,6 +1514,9 @@ function clientesUnicos(){
 function paisesUnicos(){
   return [...new Set(deals.map(d => d.pais))].sort();
 }
+function clientesFinalesUnicos(){
+  return [...new Set(deals.map(d => d.clienteFinal).filter(Boolean))].sort();
+}
 // Año de la Fecha estimada de cierre — mismo campo que usa calcularQuarter(). Orden descendente:
 // interesa ver primero el año en curso y los próximos, no el historial viejo.
 function aniosUnicos(){
@@ -1514,6 +1548,7 @@ function poblarSelects(){
   };
   poblarSelectCerrado("f_cliente", clientesEmpresas.map(c => c.empresa).filter(Boolean), clientesUnicos());
   poblarSelectCerrado("f_pais", PAISES_BASE, paisesUnicos());
+  poblarSelectCerrado("f_clienteFinal", clientesEmpresas.map(c => c.empresa).filter(Boolean), clientesFinalesUnicos());
 
   // Vendedor sigue siendo ad hoc (se puede escribir uno nuevo directo acá).
   const poblarDatalist = (id, base, enUso) => {
@@ -1814,7 +1849,7 @@ function crearTarjeta(d){
   const vencida = fechaVencida(d.fechaProximaAccion);
   el.innerHTML = `
     <div class="titulo">${d.numeroDeal ? `<span style="color:var(--texto-suave); font-weight:400;">${escapeHtml(d.numeroDeal)}</span> · ` : ""}${escapeHtml(d.titulo)}</div>
-    <div class="cliente">${escapeHtml(d.cliente)} · ${escapeHtml(d.pais)}</div>
+    <div class="cliente">${escapeHtml(d.cliente)} · ${escapeHtml(d.pais)}${d.clienteFinal ? ` <span style="color:var(--texto-suave);">(cliente final: ${escapeHtml(d.clienteFinal)})</span>` : ""}</div>
     <div class="fila"><span>Valor</span><span class="valor">${fmtUSD(d.valor)}</span></div>
     ${d.fecha ? `<div class="fila"><span>Cierre est.</span><span>${fmtFecha(d.fecha)} · ${calcularQuarter(d.fecha)}</span></div>` : ""}
     ${d.upside ? `<div class="fila"><span></span><span style="color:var(--azul-sunset); font-weight:600;">↑ Upside</span></div>` : ""}
@@ -2083,6 +2118,7 @@ function abrirModal(id){
     document.getElementById("f_titulo").value = d.titulo;
     document.getElementById("f_cliente").value = d.cliente;
     document.getElementById("f_pais").value = d.pais;
+    document.getElementById("f_clienteFinal").value = d.clienteFinal || "";
     actualizarContactosGuardadosUI(); // depende de f_cliente Y f_pais, tienen que estar seteados antes
     document.getElementById("f_vendedor").value = d.vendedor;
     poblarSelectEtapa(false); // editando: se muestran todas las etapas, incluso Forecast/Won/Lost
@@ -2099,12 +2135,12 @@ function abrirModal(id){
     document.getElementById("f_contactoCargo").value = d.contactoCargo || "";
     document.getElementById("f_contactoEmail").value = d.contactoEmail || "";
     document.getElementById("f_contactoTelefono").value = d.contactoTelefono || "";
-    document.getElementById("f_contactoProveedorNombre").value = d.contactoProveedorNombre || "";
-    document.getElementById("f_contactoProveedorCargo").value = d.contactoProveedorCargo || "";
-    document.getElementById("f_contactoProveedorEmail").value = d.contactoProveedorEmail || "";
-    document.getElementById("f_contactoProveedorTelefono").value = d.contactoProveedorTelefono || "";
+    contactosProveedorPorVendor = {};
+    (d.contactosProveedores || []).forEach(c => {
+      if(c && c.proveedor) contactosProveedorPorVendor[c.proveedor] = { nombre: c.nombre || "", cargo: c.cargo || "", email: c.email || "", telefono: c.telefono || "" };
+    });
     vendorsSeleccionados = [...(d.vendors || [])];
-    renderChipsVendors();
+    renderChipsVendors(); // depende de contactosProveedorPorVendor, tiene que estar poblado antes
     document.getElementById("f_fechaPrimerContacto").value = d.fechaPrimerContacto || "";
     document.getElementById("f_fechaProximaAccion").value = d.fechaProximaAccion || "";
     document.getElementById("f_notas").value = d.notas || "";
@@ -2124,6 +2160,7 @@ function abrirModal(id){
     document.getElementById("f_upside").checked = false;
     document.getElementById("wrapCansCreado").style.display = "none";
     vendorsSeleccionados = [];
+    contactosProveedorPorVendor = {};
     renderChipsVendors();
     btnEliminar.style.display = "none";
     actualizarProbabilidadUI();
@@ -2170,6 +2207,7 @@ function renderChipsVendors(){
   cont.querySelectorAll("button[data-vendor]").forEach(btn => {
     btn.addEventListener("click", () => {
       vendorsSeleccionados = vendorsSeleccionados.filter(v => v !== btn.dataset.vendor);
+      delete contactosProveedorPorVendor[btn.dataset.vendor]; // limpia el contacto del proveedor que se saca
       renderChipsVendors();
     });
   });
@@ -2237,6 +2275,7 @@ document.getElementById("form").addEventListener("submit", async e => {
     titulo: document.getElementById("f_titulo").value.trim(),
     cliente: document.getElementById("f_cliente").value.trim(),
     pais: document.getElementById("f_pais").value.trim(),
+    clienteFinal: document.getElementById("f_clienteFinal").value.trim(),
     vendedor: document.getElementById("f_vendedor").value.trim(),
     etapa: document.getElementById("f_etapa").value,
     sucursal: document.getElementById("f_sucursal").value,
@@ -2250,10 +2289,11 @@ document.getElementById("form").addEventListener("submit", async e => {
     contactoCargo: document.getElementById("f_contactoCargo").value.trim(),
     contactoEmail: document.getElementById("f_contactoEmail").value.trim(),
     contactoTelefono: document.getElementById("f_contactoTelefono").value.trim(),
-    contactoProveedorNombre: document.getElementById("f_contactoProveedorNombre").value.trim(),
-    contactoProveedorCargo: document.getElementById("f_contactoProveedorCargo").value.trim(),
-    contactoProveedorEmail: document.getElementById("f_contactoProveedorEmail").value.trim(),
-    contactoProveedorTelefono: document.getElementById("f_contactoProveedorTelefono").value.trim(),
+    // Un contacto por proveedor seleccionado (no un set único compartido) — solo se guardan los que
+    // tienen al menos un dato cargado, para no ensuciar el JSON con bloques totalmente vacíos.
+    contactosProveedores: vendorsSeleccionados
+      .map(v => ({ proveedor: v, ...(contactosProveedorPorVendor[v] || { nombre: "", cargo: "", email: "", telefono: "" }) }))
+      .filter(c => c.nombre || c.cargo || c.email || c.telefono),
     vendors: [...vendorsSeleccionados],
     fechaPrimerContacto: document.getElementById("f_fechaPrimerContacto").value,
     fechaProximaAccion: document.getElementById("f_fechaProximaAccion").value,
@@ -2357,6 +2397,7 @@ function exportarCSV(){
     ["N° de deal", d => d.numeroDeal || ""],
     ["Título", d => d.titulo],
     ["Cliente", d => d.cliente],
+    ["Cliente final", d => d.clienteFinal || ""],
     ["País", d => d.pais],
     ["Vendedor", d => d.vendedor],
     ["Etapa", d => { const e = ETAPAS.find(x => x.id === d.etapa); return e ? e.nombre : d.etapa; }],
@@ -2371,10 +2412,9 @@ function exportarCSV(){
     ["Días en etapa actual", d => { const n = diasEnEtapa(d.fechaCambioEtapa); return n === null ? "" : n; }],
     ["Vendors involucrados", d => (d.vendors || []).join("; ")],
     ["Fecha de primer contacto", d => d.fechaPrimerContacto ? fmtFecha(d.fechaPrimerContacto) : ""],
-    ["Contacto proveedor", d => d.contactoProveedorNombre || ""],
-    ["Contacto proveedor - Cargo", d => d.contactoProveedorCargo || ""],
-    ["Contacto proveedor - Email", d => d.contactoProveedorEmail || ""],
-    ["Contacto proveedor - Teléfono", d => d.contactoProveedorTelefono || ""],
+    ["Contactos de proveedores", d => (d.contactosProveedores || [])
+      .map(c => `${c.proveedor}: ${[c.nombre, c.cargo, c.email, c.telefono].filter(Boolean).join(" / ")}`)
+      .join("; ")],
     ["Motivo de pérdida", d => d.motivoPerdida || ""],
     ["CANS creado", d => d.cansCreado ? "Sí" : "No"],
   ];
