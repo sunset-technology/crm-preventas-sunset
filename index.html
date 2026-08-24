@@ -727,6 +727,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 <div class="overlay" id="overlay">
   <div class="modal">
     <h2 id="modalTitulo">Nueva oportunidad</h2>
+    <div id="modalNumeroDeal" style="display:none; font-size:12.5px; color:var(--texto-suave); margin-top:-8px; margin-bottom:8px;"></div>
     <form id="form">
       <div class="campo">
         <label>Nombre de la oportunidad</label>
@@ -873,12 +874,8 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
       <div class="seccion-titulo">Documentos</div>
       <div class="campo">
-        <label>Link al CANS / carpeta del proyecto <span style="font-weight:400;">(opcional — se pide al llegar a "Proposal")</span></label>
+        <label>Link al CANS / carpeta del proyecto <span style="font-weight:400;">(obligatorio a partir de "Proposal")</span></label>
         <input type="text" id="f_linkCans" placeholder="https://sunsettechnology567.sharepoint.com/...">
-      </div>
-      <div class="campo">
-        <label>Link a la propuesta técnica <span style="font-weight:400;">(opcional — se pide al llegar a "Forecast")</span></label>
-        <input type="text" id="f_linkPropuesta" placeholder="https://sunsettechnology567.sharepoint.com/...">
       </div>
       <div class="campo" id="wrapCansCreado" style="display:none;">
         <label>Estado del CANS</label>
@@ -947,8 +944,8 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 <script>
 // ---- Config de etapas (igual a CRM_Preventas_Definicion_Conceptual_v2.docx) ----
 const ETAPAS = [
-  { id: "lead", nombre: "1. Lead/Universe" },
-  { id: "unqualified", nombre: "2. Unqualified" },
+  { id: "universe", nombre: "1. Universe" },
+  { id: "lead", nombre: "2. Lead/Unqualified" },
   { id: "qualified", nombre: "3. Qualified" },
   { id: "proposal", nombre: "4. Proposal" },
   { id: "forecast", nombre: "5. Forecast" },
@@ -956,9 +953,13 @@ const ETAPAS = [
   { id: "won", nombre: "7. Won", clase: "won" },
   { id: "lost", nombre: "8. Lost", clase: "lost" },
 ];
+// Un deal nuevo solo puede darse de alta en estas 4 etapas (nunca directo en Forecast/Forecast
+// Commit/Won/Lost) — a pedido de Patricio, 24 ago 2026. Al editar un deal existente se siguen
+// mostrando todas las etapas de ETAPAS.
+const ETAPAS_ALTA_PERMITIDAS = ["universe", "lead", "qualified", "proposal"];
 // % de Probabilidad de cierre, automático según la etapa (no editable a mano).
 const PROBABILIDAD_POR_ETAPA = {
-  lead: 5, unqualified: 15, qualified: 30, proposal: 50,
+  universe: 5, lead: 15, qualified: 30, proposal: 50,
   forecast: 70, forecastcommit: 90, won: 100, lost: 0,
 };
 
@@ -972,31 +973,24 @@ const VENDEDORES_BASE = ["Gustavo Guaspari", "Gustavo Molina"];
 
 const MOTIVO_PERDIDA_OPCIONES = ["Precio", "Timing", "Perdido vs competidor", "Proyecto cancelado por cliente", "Sin presupuesto", "No calificó", "Otro"];
 
-// Config de los dos documentos vinculados y en qué etapa se piden/exigen.
-// - "cans": carpeta del proyecto/CANS, la crea Flujo A al llegar a "En preparación de propuesta".
-// - "propuesta": documento de la propuesta técnica, se sube/vincula al llegar a "Propuesta enviada".
-// GATE_* = bloqueo duro: no se puede ENTRAR a esa etapa si falta el link (hay que pasar por la etapa que lo genera).
-// SOFT_PROMPT_* = al entrar a esa etapa sin el link, se pide pegarlo (se puede omitir).
+// Config del documento CANS vinculado y en qué etapa se exige.
+// - "cans": carpeta del proyecto/CANS, la crea Flujo A al llegar a "Proposal".
+// GATE_CANS = bloqueo duro: no se puede ENTRAR a esa etapa si falta el link.
+// El campo de Propuesta técnica se sacó del CRM (a pedido de Patricio, 24 ago 2026): ya no se pide
+// ni se guarda — la columna SharePoint LinkPropuestaTexto queda huérfana, sin usar.
 const LINK_CONFIG = {
   cans: {
     campo: "linkCans",
     titulo: "Vincular CANS",
     label: "Link al CANS",
     placeholder: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/...",
-    textoPrompt: titulo => `El CANS de "${titulo}" se crea en esta etapa. Pegá el link a la carpeta del proyecto / CANS.`,
-  },
-  propuesta: {
-    campo: "linkPropuesta",
-    titulo: "Vincular propuesta técnica",
-    label: "Link a la propuesta técnica",
-    placeholder: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/.../Propuesta Tecnica",
-    textoPrompt: titulo => `Antes de marcar "${titulo}" como enviada, pegá el link a la propuesta técnica (carpeta distinta a la del CANS).`,
+    textoPrompt: titulo => `El CANS de "${titulo}" es obligatorio en esta etapa. Pegá el link a la carpeta del proyecto / CANS.`,
   },
 };
-const SOFT_PROMPT_CANS = ["proposal"];
-const SOFT_PROMPT_PROPUESTA = ["forecast"];
-const GATE_CANS = ["forecast", "forecastcommit"];   // requieren linkCans YA cargado para poder entrar
-const GATE_PROPUESTA = [];                          // link a la propuesta técnica: opcional, no bloquea el avance de etapa (a pedido de Patricio, 20 ago 2026)
+// CANS obligatorio (gate duro) para entrar a Proposal, Forecast o Forecast Commit — incluye el caso
+// de pasar directo de Qualified a Forecast (a pedido de Patricio, 24 ago 2026). Ya no hay soft-prompt
+// para CANS: al ser obligatorio en Proposal, el gate duro cubre el caso antes de llegar a Forecast.
+const GATE_CANS = ["proposal", "forecast", "forecastcommit"];
 
 // ==========================================================================
 // ---- Conexión a Microsoft Graph (MSAL.js) ----
@@ -1033,8 +1027,8 @@ const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 // Valores EXACTOS del choice "Etapa" en SharePoint (confirmados vía REST, 13 ago 2026).
 // Los ids de acá (lead, contactado...) son internos del prototipo — no existen como tales en SharePoint.
 const ETAPA_SP_VALUE = {
-  lead: "Lead/Universe",
-  unqualified: "Unqualified",
+  universe: "Universe",
+  lead: "Lead/Unqualified",
   qualified: "Qualified",
   proposal: "Proposal",
   forecast: "Forecast",
@@ -1043,11 +1037,15 @@ const ETAPA_SP_VALUE = {
   lost: "Lost",
 };
 const ETAPA_DESDE_SP = Object.fromEntries(Object.entries(ETAPA_SP_VALUE).map(([id, label]) => [label, id]));
+// Compatibilidad hacia atrás: hasta que se migren los choices/items viejos en SharePoint (columna
+// Etapa todavía puede tener "Lead/Universe" o "Unqualified" en deals existentes), ambos se leen como
+// el nuevo "lead" (Lead/Unqualified) para que no se pierdan de vista mientras se hace la migración.
+ETAPA_DESDE_SP["Lead/Universe"] = "lead";
+ETAPA_DESDE_SP["Unqualified"] = "lead";
 
 // Nombres internos reales de columnas en "Oportunidades_Preventas" (confirmados vía REST, 13 ago 2026).
-// linkPropuesta y fechaCambioEtapa quedan afuera a propósito: Patricio tiene que crear esas 2 columnas
-// nuevas en SharePoint primero (Link a la propuesta técnica / URL, Fecha de cambio de etapa / DateTime);
-// recién ahí se puede consultar su InternalName real y sumarlas acá — Graph no acepta el nombre visible.
+// LinkPropuestaTexto queda huérfana a propósito desde el 24 ago 2026: el campo de propuesta técnica
+// se sacó del CRM (a pedido de Patricio) — la columna no se borra en SharePoint, solo deja de usarse acá.
 const CAMPO_SP = {
   titulo: "Title",
   cliente: "Cliente",
@@ -1060,7 +1058,6 @@ const CAMPO_SP = {
   fecha: "Fechadepr_x00f3_ximaacci_x00f3_n",
   notas: "Notas_x002f_descripci_x00f3_ndel",
   linkCans: "LinkCANSTexto",
-  linkPropuesta: "LinkPropuestaTexto",
   fechaCambioEtapa: "Fecha_x0020_de_x0020_cambio_x002",
   contactoNombre: "Nombredelcontactoprincipal",
   contactoCargo: "Cargo",
@@ -1081,6 +1078,9 @@ const CAMPO_SP = {
   cansCreado: "CANScreado",                  // solo lectura acá — lo escribe Flujo A, no el CRM
   fechaCreacionCans: "Fechadecreaci_x00f3_ndelCANS",  // solo lectura acá — lo escribe Flujo A
   upside: "Upside",
+  // Número de trazabilidad del deal (AAAAMM-###), asignado una sola vez al crearlo — columna nueva
+  // creada sin acentos/espacios en el nombre a propósito, para que el InternalName sea igual (24 ago 2026).
+  numeroDeal: "NumeroDeal",
 };
 
 let msalInstance = null;
@@ -1150,11 +1150,12 @@ function dealDesdeItemGraph(item){
   const f = item.fields || {};
   return {
     id: item.id,
+    numeroDeal: f[CAMPO_SP.numeroDeal] || "",
     titulo: f[CAMPO_SP.titulo] || "",
     cliente: f[CAMPO_SP.cliente] || "",
     pais: f[CAMPO_SP.pais] || "",
     vendedor: f[CAMPO_SP.vendedor] || "",
-    etapa: ETAPA_DESDE_SP[f.Etapa] || "lead",
+    etapa: ETAPA_DESDE_SP[f.Etapa] || "universe",
     sucursal: f[CAMPO_SP.sucursal] || "",
     valor: Number(f[CAMPO_SP.valor]) || 0,
     probabilidad: Number(f[CAMPO_SP.probabilidad]) || 0,
@@ -1174,7 +1175,6 @@ function dealDesdeItemGraph(item){
     fechaProximaAccion: (f[CAMPO_SP.fechaProximaAccion] || "").slice(0, 10),
     notas: f[CAMPO_SP.notas] || "",
     linkCans: f[CAMPO_SP.linkCans] || "",
-    linkPropuesta: f[CAMPO_SP.linkPropuesta] || "",
     cansCreado: !!f[CAMPO_SP.cansCreado],
     fechaCreacionCans: (f[CAMPO_SP.fechaCreacionCans] || "").slice(0, 10),
     upside: !!f[CAMPO_SP.upside],
@@ -1186,6 +1186,8 @@ function dealDesdeItemGraph(item){
 
 function camposGraphDesdeDeal(datos){
   const fields = {};
+  // Solo se manda al crear el deal (ver submit handler) — nunca se pisa en una edición posterior.
+  if(datos.numeroDeal !== undefined) fields[CAMPO_SP.numeroDeal] = datos.numeroDeal;
   if(datos.titulo !== undefined) fields[CAMPO_SP.titulo] = datos.titulo;
   if(datos.cliente !== undefined) fields[CAMPO_SP.cliente] = datos.cliente;
   if(datos.pais !== undefined) fields[CAMPO_SP.pais] = datos.pais;
@@ -1207,12 +1209,18 @@ function camposGraphDesdeDeal(datos){
   if(datos.contactoProveedorCargo !== undefined) fields[CAMPO_SP.contactoProveedorCargo] = datos.contactoProveedorCargo;
   if(datos.contactoProveedorEmail !== undefined) fields[CAMPO_SP.contactoProveedorEmail] = datos.contactoProveedorEmail;
   if(datos.contactoProveedorTelefono !== undefined) fields[CAMPO_SP.contactoProveedorTelefono] = datos.contactoProveedorTelefono;
-  if(datos.vendors !== undefined && datos.vendors.length > 0) fields[CAMPO_SP.vendors] = datos.vendors;
+  // MultiChoice: Graph necesita la anotación @odata.type junto al array, si no tira 400 genérico
+  // "Invalid request" sin más detalle (confirmado en vivo, 24 ago 2026) — aunque los valores sean
+  // válidos y el array venga bien formado. Se escribe siempre que datos.vendors venga definido,
+  // incluido el array vacío (así se puede sacar el último proveedor de un deal).
+  if(datos.vendors !== undefined){
+    fields[`${CAMPO_SP.vendors}@odata.type`] = "Collection(Edm.String)";
+    fields[CAMPO_SP.vendors] = datos.vendors;
+  }
   if(datos.fechaPrimerContacto) fields[CAMPO_SP.fechaPrimerContacto] = datos.fechaPrimerContacto + "T00:00:00Z";
   if(datos.fechaProximaAccion) fields[CAMPO_SP.fechaProximaAccion] = datos.fechaProximaAccion + "T00:00:00Z";
   if(datos.notas !== undefined) fields[CAMPO_SP.notas] = datos.notas;
   if(datos.linkCans !== undefined) fields[CAMPO_SP.linkCans] = datos.linkCans || "";
-  if(datos.linkPropuesta !== undefined) fields[CAMPO_SP.linkPropuesta] = datos.linkPropuesta || "";
   if(datos.fechaCambioEtapa !== undefined && datos.fechaCambioEtapa){
     fields[CAMPO_SP.fechaCambioEtapa] = datos.fechaCambioEtapa + "T00:00:00Z";
   }
@@ -1397,14 +1405,14 @@ document.getElementById("btnConectar").addEventListener("click", conectarAShareP
 // fechaCambioEtapa: fecha del último movimiento de etapa (campo interno, no se carga a mano —
 // lo actualiza la propia app cada vez que una tarjeta cambia de columna).
 const DEALS_DEMO = [
-  { id: "1", titulo: "Claro Guatemala - Renovación SBC", cliente: "CLARO", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "proposal", sucursal: "Argentina", valor: 185000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Cliente pidió incluir soporte 24x7 en la propuesta. Confirmar con Operaciones antes de cotizar.", contactoNombre: "Marco Solís", contactoCargo: "Gerente de Redes", contactoEmail: "marco.solis@claro.gt", contactoTelefono: "+502 5555 1234", vendors: ["NG-Voice", "Xius"], fechaPrimerContacto: "2026-07-15", fechaProximaAccion: "2026-09-01", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/CLARO/Guatemala/2026/Renovacion-SBC", linkPropuesta: "", cansCreado: true, fechaCreacionCans: "2026-08-10" },
-  { id: "2", titulo: "Telefónica Perú - Ampliación IMS", cliente: "TELEFONICA", pais: "Perú", vendedor: "Gustavo Molina", etapa: "forecastcommit", valor: 340000, accion: "Ajustar condiciones comerciales", fecha: "2026-08-15", fechaCambioEtapa: "2026-07-28", notas: "También están evaluando a un competidor. Prioridad alta, quieren cerrar antes de fin de mes.", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS/Propuesta-Tecnica" },
-  { id: "3", titulo: "Tech Mahindra - Integratel DRA", cliente: "TECH MAHINDRA", pais: "Colombia", vendedor: "Gustavo Guaspari", etapa: "forecast", valor: 96000, accion: "Follow up propuesta", fecha: "2026-08-20", fechaCambioEtapa: "2026-08-05", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA/Propuesta-Tecnica" },
+  { id: "1", titulo: "Claro Guatemala - Renovación SBC", cliente: "CLARO", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "proposal", sucursal: "Argentina", valor: 185000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Cliente pidió incluir soporte 24x7 en la propuesta. Confirmar con Operaciones antes de cotizar.", contactoNombre: "Marco Solís", contactoCargo: "Gerente de Redes", contactoEmail: "marco.solis@claro.gt", contactoTelefono: "+502 5555 1234", vendors: ["NG-Voice", "Xius"], fechaPrimerContacto: "2026-07-15", fechaProximaAccion: "2026-09-01", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/CLARO/Guatemala/2026/Renovacion-SBC", cansCreado: true, fechaCreacionCans: "2026-08-10" },
+  { id: "2", titulo: "Telefónica Perú - Ampliación IMS", cliente: "TELEFONICA", pais: "Perú", vendedor: "Gustavo Molina", etapa: "forecastcommit", valor: 340000, accion: "Ajustar condiciones comerciales", fecha: "2026-08-15", fechaCambioEtapa: "2026-07-28", notas: "También están evaluando a un competidor. Prioridad alta, quieren cerrar antes de fin de mes.", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS" },
+  { id: "3", titulo: "Tech Mahindra - Integratel DRA", cliente: "TECH MAHINDRA", pais: "Colombia", vendedor: "Gustavo Guaspari", etapa: "forecast", valor: 96000, accion: "Follow up propuesta", fecha: "2026-08-20", fechaCambioEtapa: "2026-08-05", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA" },
   { id: "4", titulo: "Entel Chile - Nueva plataforma PCRF", cliente: "ENTEL", pais: "Chile", vendedor: "Gustavo Molina", etapa: "qualified", valor: 210000, accion: "Agendar relevamiento técnico", fecha: "2026-08-25", fechaCambioEtapa: "2026-08-11" },
   { id: "5", titulo: "Datatronics - Movistar El Salvador SS7", cliente: "DATATRONICS", pais: "El Salvador", vendedor: "Gustavo Guaspari", etapa: "lead", valor: 60000, accion: "Primer contacto", fecha: "2026-08-14", fechaCambioEtapa: "2026-08-12" },
   { id: "6", titulo: "Claro Argentina - Titan.ium SBC", cliente: "CLARO", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "qualified", valor: 275000, accion: "Definir arquitectura con vendors", fecha: "2026-08-22", fechaCambioEtapa: "2026-08-08" },
-  { id: "7", titulo: "Milicom Honduras - One2many notificaciones", cliente: "MILICOM", pais: "Honduras", vendedor: "Gustavo Guaspari", etapa: "unqualified", valor: 45000, accion: "Confirmar necesidad", fecha: "2026-08-19", fechaCambioEtapa: "2026-08-13" },
-  { id: "8", titulo: "Telecom Argentina - Comarch NMS", cliente: "TELECOM", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "won", valor: 410000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-20", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS", linkPropuesta: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS/Propuesta-Tecnica" },
+  { id: "7", titulo: "Milicom Honduras - One2many notificaciones", cliente: "MILICOM", pais: "Honduras", vendedor: "Gustavo Guaspari", etapa: "lead", valor: 45000, accion: "Confirmar necesidad", fecha: "2026-08-19", fechaCambioEtapa: "2026-08-13" },
+  { id: "8", titulo: "Telecom Argentina - Comarch NMS", cliente: "TELECOM", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "won", valor: 410000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-20", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS" },
   { id: "9", titulo: "Integratel - XIUS billing", cliente: "INTEGRATEL", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "lost", valor: 78000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-25", motivoPerdida: "Precio" },
 ];
 
@@ -1438,6 +1446,19 @@ function fmtFecha(f){
 }
 function hoyISO(){
   return new Date().toISOString().slice(0, 10);
+}
+// Número de trazabilidad del deal: AAAAMM-### — correlativo mensual, reinicia cada mes, basado en
+// la fecha en que se da de alta el deal (no en la fecha estimada de cierre). Se asigna una sola vez,
+// al crear el deal (a pedido de Patricio, 24 ago 2026).
+function generarNumeroDeal(fechaCreacionISO){
+  const d = fechaCreacionISO ? new Date(fechaCreacionISO + "T00:00:00") : new Date();
+  const anioMes = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const correlativosDelMes = deals
+    .map(x => x.numeroDeal || "")
+    .filter(n => n.startsWith(anioMes + "-"))
+    .map(n => Number(n.split("-")[1]) || 0);
+  const siguiente = (correlativosDelMes.length ? Math.max(...correlativosDelMes) : 0) + 1;
+  return `${anioMes}-${String(siguiente).padStart(3, "0")}`;
 }
 function diasEnEtapa(fecha){
   if(!fecha) return null;
@@ -1501,8 +1522,7 @@ function poblarSelects(){
   };
   poblarDatalist("dl_vendedores", VENDEDORES_BASE, vendedoresUnicos());
 
-  const fE = document.getElementById("f_etapa");
-  fE.innerHTML = ETAPAS.map(e => `<option value="${e.id}">${e.nombre}</option>`).join("");
+  poblarSelectEtapa(false); // población inicial: completa (abrirModal la vuelve a poblar según alta/edición)
 
   // Proveedores involucrados: desplegable cerrado, solo empresas ya cargadas en la base de Proveedores
   // (más las que ya estén en uso en deals reales, por si algo quedó desincronizado).
@@ -1762,14 +1782,7 @@ function renderTablero(){
         abrirBloqueo(`No se puede mover "${deal.titulo}" de etapa sin definir antes la Fecha estimada de cierre. Abrí la tarjeta y completá ese campo primero.`);
       } else if(GATE_CANS.includes(etapaDestino) && !deal.linkCans){
         const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
-        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: no tiene un CANS vinculado. Primero pasalo por "5. En preparación de propuesta" para generarlo.`);
-      } else if(GATE_PROPUESTA.includes(etapaDestino) && !deal.linkPropuesta){
-        const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
-        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: no tiene la propuesta técnica vinculada. Primero pasalo por "6. Propuesta enviada" para cargarla.`);
-      } else if(SOFT_PROMPT_CANS.includes(etapaDestino) && !deal.linkCans){
-        abrirPromptLink(deal, etapaDestino, "cans");
-      } else if(SOFT_PROMPT_PROPUESTA.includes(etapaDestino) && !deal.linkPropuesta){
-        abrirPromptLink(deal, etapaDestino, "propuesta");
+        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: el CANS es obligatorio a partir de Proposal. Abrí la tarjeta y completá el link al CANS primero.`);
       } else {
         moverDeal(deal, etapaDestino);
       }
@@ -1800,7 +1813,7 @@ function crearTarjeta(d){
 
   const vencida = fechaVencida(d.fechaProximaAccion);
   el.innerHTML = `
-    <div class="titulo">${escapeHtml(d.titulo)}</div>
+    <div class="titulo">${d.numeroDeal ? `<span style="color:var(--texto-suave); font-weight:400;">${escapeHtml(d.numeroDeal)}</span> · ` : ""}${escapeHtml(d.titulo)}</div>
     <div class="cliente">${escapeHtml(d.cliente)} · ${escapeHtml(d.pais)}</div>
     <div class="fila"><span>Valor</span><span class="valor">${fmtUSD(d.valor)}</span></div>
     ${d.fecha ? `<div class="fila"><span>Cierre est.</span><span>${fmtFecha(d.fecha)} · ${calcularQuarter(d.fecha)}</span></div>` : ""}
@@ -1813,7 +1826,6 @@ function crearTarjeta(d){
 
   const documentos = [
     { url: d.linkCans, texto: "🔗 Ver CANS" },
-    { url: d.linkPropuesta, texto: "📄 Ver propuesta técnica" },
   ].filter(doc => doc.url && esUrlSegura(doc.url));
 
   if(documentos.length > 0){
@@ -2043,6 +2055,15 @@ document.getElementById("btnDeshacer").addEventListener("click", () => {
 });
 
 // ---- Modal alta/edición ----
+// Repuebla el <select> de etapa: en alta nueva, solo las 4 primeras etapas (ETAPAS_ALTA_PERMITIDAS);
+// al editar, todas. Se llama de nuevo cada vez que se abre el modal (no solo en poblarSelects) para
+// no dejar opciones de una apertura anterior si se pasó de "editar" a "nueva" o viceversa.
+function poblarSelectEtapa(soloAlta){
+  const fE = document.getElementById("f_etapa");
+  const opciones = soloAlta ? ETAPAS.filter(e => ETAPAS_ALTA_PERMITIDAS.includes(e.id)) : ETAPAS;
+  fE.innerHTML = opciones.map(e => `<option value="${e.id}">${e.nombre}</option>`).join("");
+}
+
 function abrirModal(id){
   editandoId = id || null;
   const overlay = document.getElementById("overlay");
@@ -2052,11 +2073,19 @@ function abrirModal(id){
     const d = deals.find(x => x.id === id);
     etapaOriginal = d.etapa;
     document.getElementById("modalTitulo").textContent = "Editar oportunidad";
+    const numDealEl = document.getElementById("modalNumeroDeal");
+    if(d.numeroDeal){
+      numDealEl.textContent = `N° de deal: ${d.numeroDeal}`;
+      numDealEl.style.display = "block";
+    } else {
+      numDealEl.style.display = "none";
+    }
     document.getElementById("f_titulo").value = d.titulo;
     document.getElementById("f_cliente").value = d.cliente;
     document.getElementById("f_pais").value = d.pais;
     actualizarContactosGuardadosUI(); // depende de f_cliente Y f_pais, tienen que estar seteados antes
     document.getElementById("f_vendedor").value = d.vendedor;
+    poblarSelectEtapa(false); // editando: se muestran todas las etapas, incluso Forecast/Won/Lost
     document.getElementById("f_etapa").value = d.etapa;
     document.getElementById("f_sucursal").value = d.sucursal || "";
     document.getElementById("f_valor").value = d.valor;
@@ -2080,7 +2109,6 @@ function abrirModal(id){
     document.getElementById("f_fechaProximaAccion").value = d.fechaProximaAccion || "";
     document.getElementById("f_notas").value = d.notas || "";
     document.getElementById("f_linkCans").value = d.linkCans || "";
-    document.getElementById("f_linkPropuesta").value = d.linkPropuesta || "";
     document.getElementById("wrapCansCreado").style.display = "block";
     document.getElementById("indicadorCansCreado").textContent = d.cansCreado
       ? "✓ CANS creado" + (d.fechaCreacionCans ? ` (${fmtFecha(d.fechaCreacionCans)})` : "")
@@ -2089,8 +2117,10 @@ function abrirModal(id){
   } else {
     etapaOriginal = null;
     document.getElementById("modalTitulo").textContent = "Nueva oportunidad";
+    document.getElementById("modalNumeroDeal").style.display = "none";
     document.getElementById("form").reset();
-    document.getElementById("f_etapa").value = "lead";
+    poblarSelectEtapa(true); // alta nueva: solo las primeras 4 etapas, nunca directo en Forecast en adelante
+    document.getElementById("f_etapa").value = "universe";
     document.getElementById("f_upside").checked = false;
     document.getElementById("wrapCansCreado").style.display = "none";
     vendorsSeleccionados = [];
@@ -2229,9 +2259,14 @@ document.getElementById("form").addEventListener("submit", async e => {
     fechaProximaAccion: document.getElementById("f_fechaProximaAccion").value,
     notas: document.getElementById("f_notas").value.trim(),
     linkCans: document.getElementById("f_linkCans").value.trim(),
-    linkPropuesta: document.getElementById("f_linkPropuesta").value.trim(),
   };
 
+  // Un deal nuevo solo puede darse de alta en las primeras 4 etapas (nunca directo en Forecast en
+  // adelante) — chequeo defensivo además de la restricción del propio <select> en abrirModal().
+  if(!editandoId && !ETAPAS_ALTA_PERMITIDAS.includes(datos.etapa)){
+    abrirBloqueo(`No se puede dar de alta "${datos.titulo || "esta oportunidad"}" directo en esa etapa. Un deal nuevo solo puede ingresarse hasta "4. Proposal".`);
+    return;
+  }
   // Mismos gates que en el tablero, por si la etapa se cambia acá en vez de con drag&drop.
   if(!ETAPAS_CIERRE.includes(datos.etapa) && !datos.fecha){
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" sin definir la Fecha estimada de cierre.`);
@@ -2240,11 +2275,6 @@ document.getElementById("form").addEventListener("submit", async e => {
   if(GATE_CANS.includes(datos.etapa) && !datos.linkCans){
     const nombreEtapa = ETAPAS.find(x => x.id === datos.etapa).nombre;
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta el link al CANS.`);
-    return;
-  }
-  if(GATE_PROPUESTA.includes(datos.etapa) && !datos.linkPropuesta){
-    const nombreEtapa = ETAPAS.find(x => x.id === datos.etapa).nombre;
-    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta el link a la propuesta técnica.`);
     return;
   }
   if(datos.etapa === "lost" && !datos.motivoPerdida){
@@ -2279,11 +2309,12 @@ document.getElementById("form").addEventListener("submit", async e => {
       }
     } else {
       const fechaCambioEtapa = hoyISO();
+      const numeroDeal = generarNumeroDeal(fechaCambioEtapa);
       if(modoConectado){
-        const idNuevo = await crearDealEnGraph({ ...datos, fechaCambioEtapa });
-        deals.push({ id: idNuevo, ...datos, fechaCambioEtapa });
+        const idNuevo = await crearDealEnGraph({ ...datos, fechaCambioEtapa, numeroDeal });
+        deals.push({ id: idNuevo, ...datos, fechaCambioEtapa, numeroDeal });
       } else {
-        deals.push({ id: String(nextId++), ...datos, fechaCambioEtapa });
+        deals.push({ id: String(nextId++), ...datos, fechaCambioEtapa, numeroDeal });
       }
     }
     cerrarModal();
@@ -2323,6 +2354,7 @@ function exportarCSV(){
   const filtros = leerFiltros();
   const filas = deals.filter(d => pasaFiltros(d, filtros));
   const columnas = [
+    ["N° de deal", d => d.numeroDeal || ""],
     ["Título", d => d.titulo],
     ["Cliente", d => d.cliente],
     ["País", d => d.pais],
