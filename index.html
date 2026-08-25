@@ -865,6 +865,10 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
         <label>Estado del CANS</label>
         <div id="indicadorCansCreado" style="font-size:12.5px; color:var(--texto-suave);"></div>
       </div>
+      <div class="campo" id="wrapFechaAdjudicacion" style="display:none;">
+        <label>Fecha de adjudicación <span style="font-weight:400;">(fecha real de cierre — la completa Flujo B automáticamente al ganar el CANS)</span></label>
+        <div id="indicadorFechaAdjudicacion" style="font-size:12.5px; color:var(--texto-suave);"></div>
+      </div>
       <div class="modal-acciones">
         <button type="button" class="btn-eliminar" id="btnEliminar" style="display:none;">Eliminar</button>
         <div style="display:flex; gap:8px; margin-left:auto;">
@@ -1064,6 +1068,7 @@ const CAMPO_SP = {
   motivoPerdida: "Motivodep_x00e9_rdida",
   cansCreado: "CANScreado",                  // solo lectura acá — lo escribe Flujo A, no el CRM
   fechaCreacionCans: "Fechadecreaci_x00f3_ndelCANS",  // solo lectura acá — lo escribe Flujo A
+  fechaAdjudicacion: "Fecha_x0020_de_x0020_adjudicaci_",  // solo lectura acá — la fecha REAL de cierre, la escribe Flujo B (24 ago 2026)
   upside: "Upside",
   // Número de trazabilidad del deal (AAAAMM-###), asignado una sola vez al crearlo — columna nueva
   // creada sin acentos/espacios en el nombre a propósito, para que el InternalName sea igual (24 ago 2026).
@@ -1175,6 +1180,7 @@ function dealDesdeItemGraph(item){
     linkCans: f[CAMPO_SP.linkCans] || "",
     cansCreado: !!f[CAMPO_SP.cansCreado],
     fechaCreacionCans: (f[CAMPO_SP.fechaCreacionCans] || "").slice(0, 10),
+    fechaAdjudicacion: (f[CAMPO_SP.fechaAdjudicacion] || "").slice(0, 10),
     upside: !!f[CAMPO_SP.upside],
     fechaCambioEtapa: f[CAMPO_SP.fechaCambioEtapa]
       ? f[CAMPO_SP.fechaCambioEtapa].slice(0, 10)
@@ -2153,6 +2159,10 @@ function abrirModal(id){
     document.getElementById("indicadorCansCreado").textContent = d.cansCreado
       ? "✓ CANS creado" + (d.fechaCreacionCans ? ` (${fmtFecha(d.fechaCreacionCans)})` : "")
       : "Todavía no se generó (lo crea Flujo A automáticamente).";
+    document.getElementById("wrapFechaAdjudicacion").style.display = "block";
+    document.getElementById("indicadorFechaAdjudicacion").textContent = d.fechaAdjudicacion
+      ? fmtFecha(d.fechaAdjudicacion) + (d.fecha ? ` — estimado vs. real: ${diferenciaDiasFechas(d.fecha, d.fechaAdjudicacion)}` : "")
+      : "Todavía no se ganó (la completa Flujo B automáticamente).";
     btnEliminar.style.display = esAdmin() ? "inline-block" : "none";
   } else {
     etapaOriginal = null;
@@ -2163,6 +2173,7 @@ function abrirModal(id){
     document.getElementById("f_etapa").value = "universe";
     document.getElementById("f_upside").checked = false;
     document.getElementById("wrapCansCreado").style.display = "none";
+    document.getElementById("wrapFechaAdjudicacion").style.display = "none";
     vendorsSeleccionados = [];
     contactosProveedorPorVendor = {};
     renderChipsVendors();
@@ -2198,6 +2209,17 @@ function trimestreDeFecha(fechaISO){
 }
 function actualizarQuarterUI(){
   document.getElementById("f_quarter").value = calcularQuarter(document.getElementById("f_fecha").value);
+}
+// Compara "Fecha estimada de cierre" (pronóstico del comercial) contra "Fecha de adjudicación" (fecha
+// real, la escribe Flujo B) — sirve para medir qué tan bien se estiman los cierres (pedido por Patricio,
+// 24 ago 2026). Positivo = se ganó más tarde de lo estimado; negativo = se ganó antes de lo estimado.
+function diferenciaDiasFechas(fechaEstimadaISO, fechaRealISO){
+  if(!fechaEstimadaISO || !fechaRealISO) return "";
+  const est = new Date(fechaEstimadaISO + "T00:00:00Z");
+  const real = new Date(fechaRealISO + "T00:00:00Z");
+  const dias = Math.round((real - est) / 86400000);
+  if(dias === 0) return "coincide exacto";
+  return dias > 0 ? `${dias} día${dias === 1 ? "" : "s"} más tarde de lo estimado` : `${Math.abs(dias)} día${Math.abs(dias) === 1 ? "" : "s"} antes de lo estimado`;
 }
 document.getElementById("f_etapa").addEventListener("change", actualizarProbabilidadUI);
 document.getElementById("f_fecha").addEventListener("change", actualizarQuarterUI);
@@ -2421,6 +2443,8 @@ function exportarCSV(){
       .join("; ")],
     ["Motivo de pérdida", d => d.motivoPerdida || ""],
     ["CANS creado", d => d.cansCreado ? "Sí" : "No"],
+    ["Fecha de adjudicación", d => d.fechaAdjudicacion ? fmtFecha(d.fechaAdjudicacion) : ""],
+    ["Diferencia estimado vs. real", d => diferenciaDiasFechas(d.fecha, d.fechaAdjudicacion)],
   ];
   const encabezado = columnas.map(c => escaparCsv(c[0])).join(",");
   const filasCsv = filas.map(d => columnas.map(c => escaparCsv(c[1](d))).join(","));
