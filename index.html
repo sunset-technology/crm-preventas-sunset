@@ -801,7 +801,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
         <select id="f_motivoPerdida"></select>
       </div>
 
-      <div class="seccion-titulo">Datos de contacto <span style="font-weight:400;"><a href="./clientes-vendors.html" target="_blank" rel="noopener">gestionar clientes/contactos ↗</a></span></div>
+      <div class="seccion-titulo">Datos de contacto <span style="font-weight:400;"><a href="./clientes-vendors.html" target="_blank" rel="noopener">gestionar clientes/contactos ↗</a> · <button type="button" id="btnActualizarBases" class="btn-secundario" style="padding:2px 8px; font-size:12px; font-weight:400;">🔄 Actualizar listas</button></span></div>
       <div class="campo" id="wrapContactoGuardado" style="display:none;">
         <label>Contacto guardado de este cliente</label>
         <select id="f_contactoGuardado"><option value="">— Elegir de la base de datos —</option></select>
@@ -2264,9 +2264,34 @@ function cerrarModal(){
 
 document.getElementById("btnNueva").addEventListener("click", () => abrirModal(null));
 document.getElementById("btnCancelar").addEventListener("click", cerrarModal);
-document.getElementById("overlay").addEventListener("click", e => {
-  if(e.target.id === "overlay") cerrarModal();
+
+// Refresca Clientes/Proveedores/Contactos desde SharePoint SIN cerrar el modal ni tocar lo ya
+// escrito — para cuando en medio de cargar un deal el comercial nota que falta un cliente/proveedor/
+// contacto, lo agrega en la pestaña de clientes-vendors.html (se abre en pestaña nueva) y vuelve acá
+// a actualizar los desplegables sin perder el formulario.
+document.getElementById("btnActualizarBases").addEventListener("click", async () => {
+  const btn = document.getElementById("btnActualizarBases");
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Actualizando…";
+  try {
+    await cargarBasesMaestras();
+    poblarSelects();
+    actualizarContactosGuardadosUI();
+    actualizarContactoProveedorGuardadoUI();
+    btn.textContent = "✓ Actualizado";
+    setTimeout(() => { btn.textContent = textoOriginal; }, 1500);
+  } catch(e) {
+    alert("No se pudieron actualizar las listas: " + e.message);
+    btn.textContent = textoOriginal;
+  } finally {
+    btn.disabled = false;
+  }
 });
+// A propósito NO se cierra al hacer click afuera (backdrop): con el formulario de alta/edición
+// abierto, un click accidental fuera de la ventana no debe perder lo cargado. Para cerrar hay que
+// usar el botón "Cancelar" (o Guardar). Los demás overlays (confirmación, link, bloqueo) sí cierran
+// con click afuera porque no tienen datos que se puedan perder.
 
 document.getElementById("btnEliminar").addEventListener("click", async () => {
   // Doble chequeo: el botón ya está oculto para quien no sea admin, esto es solo para no confiar
