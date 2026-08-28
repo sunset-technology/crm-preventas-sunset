@@ -537,17 +537,21 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     background:rgba(15,25,35,0.45);
     align-items:center;
     justify-content:center;
+    /* Deja libre la franja de arriba (header + barra de pestañas, que quedan por encima del
+       overlay con z-index:60 para poder seguir navegando) — así el modal nunca se dibuja por
+       detrás de las pestañas, y en vez de eso usa más scroll interno si el formulario es largo. */
+    padding:150px 20px 40px;
     z-index:50;
   }
   .overlay.activo{display:flex;}
   .modal{
     background:#fff;
-    width:440px;
-    max-width:92vw;
-    max-height:90vh;
+    width:400px;
+    max-width:90vw;
+    max-height:calc(100vh - 220px);
     overflow-y:auto;
     border-radius:10px;
-    padding:22px 24px;
+    padding:20px 22px;
   }
   .modal h2{
     font-size:16px;
@@ -2728,10 +2732,16 @@ document.getElementById("btnActualizarBases").addEventListener("click", async ()
     btn.disabled = false;
   }
 });
-// A propósito NO se cierra al hacer click afuera (backdrop): con el formulario de alta/edición
-// abierto, un click accidental fuera de la ventana no debe perder lo cargado. Para cerrar hay que
-// usar el botón "Cancelar" (o Guardar). Los demás overlays (confirmación, link, bloqueo) sí cierran
-// con click afuera porque no tienen datos que se puedan perder.
+// Click afuera (backdrop) del modal de oportunidad: PAUSA en vez de cerrar — mismo mecanismo que
+// al cambiar de pestaña (ver pausarModalOportunidad()). Así un click accidental fuera de la ventana
+// no pierde lo cargado (queda la píldora "Oportunidad sin guardar" para retomarlo), pero sigue
+// siendo cómodo sacarse el formulario de encima con un solo click. Para cerrar y descartar de
+// verdad hay que usar el botón "Cancelar". Los demás overlays (confirmación, link, bloqueo, y los
+// de Cliente/Proveedor/Contacto) sí cierran del todo con click afuera — son formularios cortos, sin
+// el mismo riesgo de pérdida.
+document.getElementById("overlay").addEventListener("click", e => {
+  if(e.target.id === "overlay") pausarModalOportunidad();
+});
 
 document.getElementById("btnEliminar").addEventListener("click", async () => {
   // Doble chequeo: el botón ya está oculto para quien no sea admin, esto es solo para no confiar
