@@ -121,7 +121,15 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     color:var(--header-subt);
     text-transform:uppercase;
     letter-spacing:.04em;
-    margin:0 0 -2px;
+    margin:0;
+  }
+  /* Paneles verticales del sidebar (filtros de deals, y los de Clientes/Proveedores/Contactos):
+     más separados entre sí para aprovechar el alto del banner izquierdo, en vez de quedar todos
+     apretados arriba. */
+  #sidebarFiltrosDeals, .sidebar-panel-bd{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
   }
   .sidebar-nav{
     display:flex;
@@ -142,6 +150,57 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
   }
   .nav-item:hover{background:rgba(255,255,255,0.08);}
   .nav-item.activo{background:rgba(255,255,255,0.16); color:#fff;}
+
+  /* Barra de pestañas horizontal (estilo pestañas de navegador), arriba de todo el contenido */
+  .tabs-bar{
+    display:flex;
+    align-items:flex-end;
+    gap:2px;
+    background:var(--primario-oscuro);
+    padding:8px 16px 0;
+    /* Por encima del overlay del modal de oportunidad (z-index:50) para poder seguir cambiando de
+       pestaña con el modal abierto — ver pausarModalOportunidad(). */
+    position:relative;
+    z-index:60;
+  }
+  /* Píldora flotante que aparece cuando hay una oportunidad a medio cargar y se cambió de pestaña
+     para ir a buscar/agregar algo (cliente, proveedor, contacto) sin perderla. */
+  .pildora-oportunidad-pausada{
+    display:none;
+    position:fixed;
+    bottom:22px;
+    right:22px;
+    background:var(--azul-sunset);
+    color:#fff;
+    padding:12px 18px;
+    border-radius:30px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.25);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    z-index:70;
+    align-items:center;
+    gap:8px;
+  }
+  .pildora-oportunidad-pausada.visible{display:flex;}
+  .pildora-oportunidad-pausada:hover{background:var(--primario-oscuro);}
+  .tab-item{
+    background:rgba(255,255,255,0.10);
+    border:none;
+    border-radius:8px 8px 0 0;
+    color:var(--header-subt);
+    padding:9px 18px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .tab-item:hover{background:rgba(255,255,255,0.18); color:#fff;}
+  .tab-item.activo{background:var(--fondo); color:var(--texto);}
+  .tabla-datos{width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);}
+  .tabla-datos th{background:var(--header-select-bg); color:#fff; text-align:left; padding:10px 12px; font-size:12.5px;}
+  .tabla-datos td{padding:10px 12px; border-bottom:1px solid #eee; font-size:13.5px; cursor:pointer;}
+  .tabla-datos tr:hover td{background:#f5f9fa;}
   .alerta-vencidos{
     background:rgba(192,57,43,0.22);
     border:1px solid rgba(192,57,43,0.5);
@@ -668,35 +727,47 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
 <div class="app-layout">
   <aside class="sidebar">
-    <nav class="sidebar-nav">
-      <button type="button" class="nav-item activo" id="navTablero">🗂️ Tablero</button>
-      <button type="button" class="nav-item" id="navEstadisticas">📊 Estadísticas</button>
-    </nav>
-    <div class="sidebar-titulo">Buscar y filtrar</div>
-    <input type="text" id="buscador" placeholder="Buscar por título o cliente…">
-    <select id="filtroCliente">
-      <option value="">Todos los clientes</option>
-    </select>
-    <select id="filtroPais">
-      <option value="">Todos los países</option>
-    </select>
-    <select id="filtroVendedor">
-      <option value="">Todos los vendedores</option>
-    </select>
-    <select id="filtroAnio">
-      <option value="">Todos los años</option>
-    </select>
-    <select id="filtroTrimestre">
-      <option value="">Todos los trimestres</option>
-      <option value="Q1">Q1</option>
-      <option value="Q2">Q2</option>
-      <option value="Q3">Q3</option>
-      <option value="Q4">Q4</option>
-    </select>
-    <button class="btn-limpiar" id="btnLimpiar" type="button">Limpiar filtros</button>
-    <button class="btn-limpiar" id="btnExportarCsv" type="button">⬇️ Exportar CSV</button>
-    <a href="./clientes-vendors.html" target="_blank" rel="noopener" class="btn-limpiar" style="display:block; text-align:center; text-decoration:none;">📇 Clientes / Vendors</a>
-    <div class="alerta-vencidos" id="alertaVencidos" style="display:none;"></div>
+    <div id="sidebarFiltrosDeals">
+      <div class="sidebar-titulo">Buscar y filtrar</div>
+      <input type="text" id="buscador" placeholder="Buscar por título o cliente…">
+      <select id="filtroCliente">
+        <option value="">Todos los clientes</option>
+      </select>
+      <select id="filtroPais">
+        <option value="">Todos los países</option>
+      </select>
+      <select id="filtroVendedor">
+        <option value="">Todos los vendedores</option>
+      </select>
+      <select id="filtroAnio">
+        <option value="">Todos los años</option>
+      </select>
+      <select id="filtroTrimestre">
+        <option value="">Todos los trimestres</option>
+        <option value="Q1">Q1</option>
+        <option value="Q2">Q2</option>
+        <option value="Q3">Q3</option>
+        <option value="Q4">Q4</option>
+      </select>
+      <button class="btn-limpiar" id="btnLimpiar" type="button">Limpiar filtros</button>
+      <button class="btn-limpiar" id="btnExportarCsv" type="button">⬇️ Exportar CSV</button>
+      <div class="alerta-vencidos" id="alertaVencidos" style="display:none;"></div>
+    </div>
+    <div id="sidebarClientes" class="sidebar-panel-bd" style="display:none;">
+      <div class="sidebar-titulo">Buscar y agregar</div>
+      <input type="text" id="buscarCliente" placeholder="Buscar por empresa…">
+      <button type="button" class="btn-nueva" id="btnNuevoCliente">+ Agregar cliente</button>
+    </div>
+    <div id="sidebarProveedores" class="sidebar-panel-bd" style="display:none;">
+      <div class="sidebar-titulo">Buscar y agregar</div>
+      <input type="text" id="buscarProveedor" placeholder="Buscar por nombre…">
+      <button type="button" class="btn-nueva" id="btnNuevoProveedor">+ Agregar proveedor</button>
+    </div>
+    <div id="sidebarContactos" class="sidebar-panel-bd" style="display:none;">
+      <div class="sidebar-titulo">Buscar y agregar</div>
+      <input type="text" id="buscarContacto" placeholder="Buscar por nombre o empresa…">
+      <button type="button" class="btn-nueva" id="btnNuevoContacto">+ Agregar contacto</button>
+    </div>
     <div style="flex:1;"></div>
     <button class="btn-nueva" id="btnNueva">+ Nueva oportunidad</button>
   </aside>
@@ -715,11 +786,28 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
       </div>
     </header>
 
+    <nav class="tabs-bar">
+      <button type="button" class="tab-item activo" id="navTablero">🗂️ Tablero</button>
+      <button type="button" class="tab-item" id="navEstadisticas">📊 Estadísticas</button>
+      <button type="button" class="tab-item" id="navClientes">🏢 Clientes</button>
+      <button type="button" class="tab-item" id="navProveedores">🏭 Proveedores</button>
+      <button type="button" class="tab-item" id="navContactos">👤 Contactos</button>
+    </nav>
+
     <div class="resultados-info" id="resultadosInfo"></div>
 
     <main>
       <div class="tablero" id="tablero"><div class="vacio" style="padding:40px;">Cargando…</div></div>
       <div class="vista-estadisticas" id="vistaEstadisticas" style="display:none;"></div>
+      <div id="vistaClientes" style="display:none;">
+        <table class="tabla-datos" id="tablaClientesBD"></table>
+      </div>
+      <div id="vistaProveedores" style="display:none;">
+        <table class="tabla-datos" id="tablaProveedoresBD"></table>
+      </div>
+      <div id="vistaContactos" style="display:none;">
+        <table class="tabla-datos" id="tablaContactosBD"></table>
+      </div>
     </main>
   </div>
 </div>
@@ -801,7 +889,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
         <select id="f_motivoPerdida"></select>
       </div>
 
-      <div class="seccion-titulo">Datos de contacto <span style="font-weight:400;"><a href="./clientes-vendors.html" target="_blank" rel="noopener">gestionar clientes/contactos ↗</a> · <button type="button" id="btnActualizarBases" class="btn-secundario" style="padding:2px 8px; font-size:12px; font-weight:400;">🔄 Actualizar listas</button></span></div>
+      <div class="seccion-titulo">Datos de contacto <span style="font-weight:400;"><a href="./index.html#clientes" target="_blank" rel="noopener">gestionar clientes/contactos ↗</a> · <button type="button" id="btnActualizarBases" class="btn-secundario" style="padding:2px 8px; font-size:12px; font-weight:400;">🔄 Actualizar listas</button></span></div>
       <div class="campo" id="wrapContactoGuardado" style="display:none;">
         <label>Contacto guardado de este cliente</label>
         <select id="f_contactoGuardado"><option value="">— Elegir de la base de datos —</option></select>
@@ -839,7 +927,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
       <div class="seccion-titulo">Seguimiento</div>
       <div class="campo">
-        <label>Proveedores involucrados <span style="font-weight:400;">(incluye ingenieros externos — si no está en la lista, agregalo primero desde <a href="./clientes-vendors.html" target="_blank" rel="noopener">Clientes/Vendors</a>)</span></label>
+        <label>Proveedores involucrados <span style="font-weight:400;">(incluye ingenieros externos — si no está en la lista, agregalo primero desde <a href="./index.html#proveedores" target="_blank" rel="noopener">Clientes/Vendors</a>)</span></label>
         <div class="chips-vendors" id="chipsVendors"></div>
         <div class="fila-agregar-vendor">
           <select id="f_vendorNuevo"><option value="">Elegí un proveedor…</option></select>
@@ -927,6 +1015,90 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 <div class="toast" id="toast">
   <span id="toastTexto"></span>
   <button type="button" id="btnDeshacer">Deshacer</button>
+</div>
+
+<div class="pildora-oportunidad-pausada" id="pildoraOportunidadPausada">📝 Oportunidad sin guardar — Continuar</div>
+
+<!-- ---- Modales de la base de datos de Clientes / Proveedores / Contactos (ex clientes-vendors.html) ---- -->
+<div class="overlay" id="overlayCliente">
+  <div class="modal">
+    <h2>Cliente</h2>
+    <form id="formCliente">
+      <div class="campo"><label>Empresa</label><input type="text" id="c_empresa" required></div>
+      <div class="campo"><label>Notas</label><textarea id="c_notas" rows="3"></textarea></div>
+      <div class="nota-graph">El país y los datos de contacto se cargan por separado en la pestaña Contactos — una empresa puede tener contactos en más de un país.</div>
+      <div class="modal-acciones">
+        <button type="button" class="btn-eliminar" id="btnEliminarCliente" style="display:none;">Eliminar</button>
+        <div style="display:flex; gap:8px; margin-left:auto;">
+          <button type="button" class="btn-secundario" id="btnCancelarCliente">Cancelar</button>
+          <button type="submit" class="btn-primario">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="overlayProveedor">
+  <div class="modal">
+    <h2>Proveedor</h2>
+    <form id="formProveedor">
+      <div class="campo"><label>Nombre del proveedor</label><input type="text" id="p_nombre" required></div>
+      <div class="campo"><label>Página web</label><input type="text" id="p_web" placeholder="https://..."></div>
+      <div class="campo"><label>Productos</label><input type="text" id="p_productos" placeholder="Ej: SBC, DRA, PCRF"></div>
+      <div class="campo"><label>Descripción</label><textarea id="p_descripcion" rows="3"></textarea></div>
+      <div class="nota-graph">Los datos de contacto se cargan por separado en la pestaña Contactos.</div>
+      <div class="modal-acciones">
+        <button type="button" class="btn-eliminar" id="btnEliminarProveedor" style="display:none;">Eliminar</button>
+        <div style="display:flex; gap:8px; margin-left:auto;">
+          <button type="button" class="btn-secundario" id="btnCancelarProveedor">Cancelar</button>
+          <button type="submit" class="btn-primario">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="overlayContacto">
+  <div class="modal">
+    <h2>Contacto</h2>
+    <form id="formContacto">
+      <div class="fila2">
+        <div class="campo">
+          <label>Tipo de empresa</label>
+          <select id="ct_tipo" required>
+            <option value="">Elegí un tipo…</option>
+            <option value="Cliente">Cliente</option>
+            <option value="Proveedor">Proveedor</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Empresa</label>
+          <select id="ct_empresa" required><option value="">Elegí primero el tipo…</option></select>
+        </div>
+      </div>
+      <div class="fila2">
+        <div class="campo"><label>Nombre del contacto</label><input type="text" id="ct_nombre" required></div>
+        <div class="campo"><label>Cargo</label><input type="text" id="ct_cargo"></div>
+      </div>
+      <div class="fila2">
+        <div class="campo"><label>Email</label><input type="email" id="ct_email"></div>
+        <div class="campo"><label>Teléfono</label><input type="text" id="ct_telefono"></div>
+      </div>
+      <div class="fila2">
+        <div class="campo"><label>País <span style="font-weight:400;">(obligatorio para contactos de Cliente — algunos clientes tienen filiales por país, ej. Claro Guatemala vs. Claro Argentina, y el CRM usa este dato para no mezclar sus contactos)</span></label><input type="text" id="ct_pais"></div>
+        <div class="campo"><label>Ubicación</label><input type="text" id="ct_ubicacion" placeholder="Ciudad / oficina"></div>
+      </div>
+      <div class="campo"><label>Notas</label><textarea id="ct_notas" rows="2"></textarea></div>
+      <div class="nota-graph">Si este contacto cambió de empresa, editalo y elegí la nueva empresa acá — se relinkea automáticamente.</div>
+      <div class="modal-acciones">
+        <button type="button" class="btn-eliminar" id="btnEliminarContacto" style="display:none;">Eliminar</button>
+        <div style="display:flex; gap:8px; margin-left:auto;">
+          <button type="button" class="btn-secundario" id="btnCancelarContacto">Cancelar</button>
+          <button type="submit" class="btn-primario">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
 </div>
 
 <script>
@@ -1237,7 +1409,9 @@ async function cargarDealsDesdeGraph(){
 }
 
 // ---- Bases maestras: Clientes (empresas), Proveedores (empresas, lista Vendors_Info) y Contactos —
-// todas de solo lectura desde el CRM principal, se cargan y editan desde clientes-vendors.html.
+// se leen acá para poblar los desplegables del modal de oportunidad, y desde el 25 ago 2026 también
+// se editan directo desde las pestañas Clientes/Proveedores/Contactos de este mismo archivo (fusionado
+// desde clientes-vendors.html, que queda sin usar como página aparte pero no se borró, por las dudas).
 // Un solo Graph fetch para Contactos, después separado en clientes/proveedores por TipoEmpresa.
 // Best-effort: si falla algo acá, el CRM sigue funcionando igual (solo se pierden los desplegables
 // derivados, no la carga de deals).
@@ -1253,14 +1427,16 @@ async function cargarBasesMaestras(){
       graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items?expand=fields&$top=1000`),
       graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items?expand=fields&$top=1000`),
     ]);
-    clientesEmpresas = (dc.value || []).map(it => ({ empresa: it.fields.Empresa || "", notas: it.fields.Notas || "" }));
+    clientesEmpresas = (dc.value || []).map(it => ({ id: it.id, empresa: it.fields.Empresa || "", notas: it.fields.Notas || "" }));
     proveedoresEmpresas = (dp.value || []).map(it => ({
+      id: it.id,
       nombre: it.fields.NombreVendor || "",
       web: it.fields.Web || "",
       productos: it.fields.Productos || "",
       descripcion: it.fields.Descripcion || "",
     }));
     const todosContactos = (dct.value || []).map(it => ({
+      id: it.id,
       tipo: it.fields.TipoEmpresa || "",
       empresa: it.fields.Empresa || "",
       nombre: it.fields.NombreContacto || "",
@@ -1268,6 +1444,8 @@ async function cargarBasesMaestras(){
       email: it.fields.Email || "",
       telefono: it.fields.Telefono || "",
       pais: it.fields.Pais || "",
+      ubicacion: it.fields.Ubicacion || "",
+      notas: it.fields.Notas || "",
     }));
     contactosClientes = todosContactos.filter(c => c.tipo === "Cliente");
     contactosProveedor = todosContactos.filter(c => c.tipo === "Proveedor");
@@ -1421,11 +1599,16 @@ async function conectarASharePoint(){
     const resultado = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
     cuentaActiva = resultado.account;
     await cargarDealsDesdeGraph();
-    cargarBasesMaestras().then(() => { poblarSelects(); actualizarContactoProveedorGuardadoUI(); }); // best-effort, no bloquea el resto de la conexión
+    cargarBasesMaestras().then(() => {
+      poblarSelects(); actualizarContactoProveedorGuardadoUI();
+      if(["clientes", "proveedores", "contactos"].includes(vistaActual)) cambiarVista(vistaActual);
+    }); // best-effort, no bloquea el resto de la conexión
     modoConectado = true;
     activarUIConectado();
     renderTablero();
     poblarSelects();
+    const hashActual = location.hash.slice(1);
+    if(["tablero", "estadisticas", "clientes", "proveedores", "contactos"].includes(hashActual)) cambiarVista(hashActual);
   } catch (e) {
     console.error("Error al conectar con SharePoint", e);
     alert("No se pudo iniciar sesión o leer la lista de SharePoint. Detalle técnico: " + (e.message || e));
@@ -1748,17 +1931,264 @@ function renderEstadisticas(filtros){
   `;
 }
 
+const VISTAS_NAV = ["Tablero", "Estadisticas", "Clientes", "Proveedores", "Contactos"];
+// ---- Permite seguir cambiando de pestaña (Clientes/Proveedores/Contactos/Estadísticas) con el
+// modal de "Nueva oportunidad" / edición abierto, sin perder lo cargado — a pedido de Patricio.
+// El modal no se cierra de verdad (no se resetea el form ni editandoId): solo se oculta mientras
+// se navega a otra pestaña, y una píldora flotante permite retomarlo desde cualquier pestaña.
+function pausarModalOportunidad(){
+  document.getElementById("overlay").classList.remove("activo");
+  document.getElementById("pildoraOportunidadPausada").classList.add("visible");
+}
+function reanudarModalOportunidad(){
+  document.getElementById("pildoraOportunidadPausada").classList.remove("visible");
+  document.getElementById("overlay").classList.add("activo");
+}
+document.getElementById("pildoraOportunidadPausada").addEventListener("click", reanudarModalOportunidad);
+
 function cambiarVista(vista){
+  if(vista !== vistaActual && document.getElementById("overlay").classList.contains("activo")){
+    pausarModalOportunidad();
+  }
   vistaActual = vista;
-  document.getElementById("navTablero").classList.toggle("activo", vista === "tablero");
-  document.getElementById("navEstadisticas").classList.toggle("activo", vista === "estadisticas");
+  const idNav = "nav" + vista.charAt(0).toUpperCase() + vista.slice(1);
+  VISTAS_NAV.forEach(v => document.getElementById("nav" + v).classList.toggle("activo", ("nav" + v) === idNav));
   document.getElementById("tablero").style.display = vista === "tablero" ? "" : "none";
   document.getElementById("resultadosInfo").style.display = vista === "tablero" ? "" : "none";
   document.getElementById("vistaEstadisticas").style.display = vista === "estadisticas" ? "block" : "none";
+  document.getElementById("vistaClientes").style.display = vista === "clientes" ? "block" : "none";
+  document.getElementById("vistaProveedores").style.display = vista === "proveedores" ? "block" : "none";
+  document.getElementById("vistaContactos").style.display = vista === "contactos" ? "block" : "none";
+  // Los filtros de deals (sidebar) solo tienen sentido para Tablero/Estadísticas — Clientes/
+  // Proveedores/Contactos tienen su propio panel de buscador+alta, en el mismo lugar del sidebar
+  // (llena ese espacio en vez de quedar vacío, y reutiliza el mismo estilo visual).
+  document.getElementById("sidebarFiltrosDeals").style.display = (vista === "tablero" || vista === "estadisticas") ? "" : "none";
+  document.getElementById("sidebarClientes").style.display = vista === "clientes" ? "flex" : "none";
+  document.getElementById("sidebarProveedores").style.display = vista === "proveedores" ? "flex" : "none";
+  document.getElementById("sidebarContactos").style.display = vista === "contactos" ? "flex" : "none";
   if(vista === "estadisticas") renderEstadisticas(leerFiltros());
+  if(vista === "clientes") renderTablaClientesBD();
+  if(vista === "proveedores") renderTablaProveedoresBD();
+  if(vista === "contactos") renderTablaContactosBD();
+  // Refleja la pestaña activa en la URL (#clientes, #proveedores, etc.) para que los links del modal
+  // de oportunidad ("gestionar clientes/contactos ↗") puedan abrir una pestaña nueva del navegador
+  // directo en la vista correcta, sin perder el formulario que se estaba completando.
+  if(location.hash.slice(1) !== vista) history.replaceState(null, "", "#" + vista);
 }
 document.getElementById("navTablero").addEventListener("click", () => cambiarVista("tablero"));
 document.getElementById("navEstadisticas").addEventListener("click", () => cambiarVista("estadisticas"));
+document.getElementById("navClientes").addEventListener("click", () => cambiarVista("clientes"));
+document.getElementById("navProveedores").addEventListener("click", () => cambiarVista("proveedores"));
+document.getElementById("navContactos").addEventListener("click", () => cambiarVista("contactos"));
+
+// ---- Base de datos de Clientes / Proveedores / Contactos (fusionado desde clientes-vendors.html,
+// 25 ago 2026) — opera sobre los mismos arrays en memoria (clientesEmpresas, proveedoresEmpresas,
+// contactosClientes, contactosProveedor) que ya carga cargarBasesMaestras() para poblar los
+// desplegables del modal de oportunidad. Guardar acá dispara cargarBasesMaestras()+poblarSelects()
+// de nuevo, así el modal de oportunidad ya ve el dato nuevo sin recargar la página. ----
+let editandoClienteIdBD = null, editandoProveedorIdBD = null, editandoContactoIdBD = null;
+
+function renderTablaClientesBD(){
+  const filtro = (document.getElementById("buscarCliente").value || "").trim().toLowerCase();
+  const todosContactos = [...contactosClientes, ...contactosProveedor];
+  const filas = clientesEmpresas
+    .filter(c => !filtro || c.empresa.toLowerCase().includes(filtro))
+    .sort((a, b) => a.empresa.localeCompare(b.empresa));
+  document.getElementById("tablaClientesBD").innerHTML = `
+    <tr><th>Empresa</th><th>Contactos</th><th>Notas</th></tr>
+    ${filas.map(c => {
+      const nContactos = todosContactos.filter(x => x.tipo === "Cliente" && x.empresa === c.empresa).length;
+      return `<tr data-id="${c.id}"><td>${escapeHtml(c.empresa)}</td><td>${nContactos}</td><td>${escapeHtml(c.notas)}</td></tr>`;
+    }).join("") || `<tr><td colspan="3" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
+  `;
+  document.querySelectorAll("#tablaClientesBD tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalClienteBD(tr.dataset.id)));
+}
+function renderTablaProveedoresBD(){
+  const filtro = (document.getElementById("buscarProveedor").value || "").trim().toLowerCase();
+  const todosContactos = [...contactosClientes, ...contactosProveedor];
+  const filas = proveedoresEmpresas
+    .filter(p => !filtro || p.nombre.toLowerCase().includes(filtro))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById("tablaProveedoresBD").innerHTML = `
+    <tr><th>Nombre</th><th>Contactos</th><th>Productos</th><th>Web</th></tr>
+    ${filas.map(p => {
+      const nContactos = todosContactos.filter(x => x.tipo === "Proveedor" && x.empresa === p.nombre).length;
+      return `<tr data-id="${p.id}"><td>${escapeHtml(p.nombre)}</td><td>${nContactos}</td><td>${escapeHtml(p.productos)}</td><td>${escapeHtml(p.web)}</td></tr>`;
+    }).join("") || `<tr><td colspan="4" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
+  `;
+  document.querySelectorAll("#tablaProveedoresBD tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalProveedorBD(tr.dataset.id)));
+}
+function renderTablaContactosBD(){
+  const filtro = (document.getElementById("buscarContacto").value || "").trim().toLowerCase();
+  const todosContactos = [...contactosClientes, ...contactosProveedor];
+  const filas = todosContactos
+    .filter(c => !filtro || (c.nombre + c.empresa).toLowerCase().includes(filtro))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById("tablaContactosBD").innerHTML = `
+    <tr><th>Nombre</th><th>Tipo</th><th>Empresa</th><th>Cargo</th><th>Email</th><th>Teléfono</th><th>País</th></tr>
+    ${filas.map(c => `<tr data-id="${c.id}"><td>${escapeHtml(c.nombre)}</td><td>${escapeHtml(c.tipo)}</td><td>${escapeHtml(c.empresa)}</td><td>${escapeHtml(c.cargo)}</td><td>${escapeHtml(c.email)}</td><td>${escapeHtml(c.telefono)}</td><td>${escapeHtml(c.pais)}</td></tr>`).join("") || `<tr><td colspan="7" style="text-align:center; color:#888; padding:20px;">Sin datos todavía.</td></tr>`}
+  `;
+  document.querySelectorAll("#tablaContactosBD tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalContactoBD(tr.dataset.id)));
+}
+
+function abrirModalClienteBD(id){
+  editandoClienteIdBD = id || null;
+  const c = id ? clientesEmpresas.find(x => x.id === id) : null;
+  document.getElementById("c_empresa").value = c ? c.empresa : "";
+  document.getElementById("c_notas").value = c ? c.notas : "";
+  document.getElementById("btnEliminarCliente").style.display = c ? "inline-block" : "none";
+  document.getElementById("overlayCliente").classList.add("activo");
+}
+function abrirModalProveedorBD(id){
+  editandoProveedorIdBD = id || null;
+  const p = id ? proveedoresEmpresas.find(x => x.id === id) : null;
+  document.getElementById("p_nombre").value = p ? p.nombre : "";
+  document.getElementById("p_web").value = p ? p.web : "";
+  document.getElementById("p_productos").value = p ? p.productos : "";
+  document.getElementById("p_descripcion").value = p ? p.descripcion : "";
+  document.getElementById("btnEliminarProveedor").style.display = p ? "inline-block" : "none";
+  document.getElementById("overlayProveedor").classList.add("activo");
+}
+// Desplegable de Empresa dentro del modal de Contacto: cerrado, se alimenta de Clientes o Proveedores
+// según el Tipo de empresa elegido — evita contactos linkeados a una empresa que no existe en la base.
+function poblarEmpresasSegunTipoBD(tipo, seleccionActual){
+  const sel = document.getElementById("ct_empresa");
+  const opciones = tipo === "Cliente" ? clientesEmpresas.map(c => c.empresa)
+    : tipo === "Proveedor" ? proveedoresEmpresas.map(p => p.nombre)
+    : [];
+  const unicas = [...new Set(opciones)].filter(Boolean).sort();
+  sel.innerHTML = `<option value="">${tipo ? (unicas.length ? "Elegí una empresa…" : "No hay empresas cargadas — agregala primero en su pestaña") : "Elegí primero el tipo…"}</option>` +
+    unicas.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+  if(seleccionActual && unicas.includes(seleccionActual)) sel.value = seleccionActual;
+}
+document.getElementById("ct_tipo").addEventListener("change", () => poblarEmpresasSegunTipoBD(document.getElementById("ct_tipo").value, ""));
+function abrirModalContactoBD(id){
+  editandoContactoIdBD = id || null;
+  const todosContactos = [...contactosClientes, ...contactosProveedor];
+  const c = id ? todosContactos.find(x => x.id === id) : null;
+  document.getElementById("ct_tipo").value = c ? c.tipo : "";
+  poblarEmpresasSegunTipoBD(c ? c.tipo : "", c ? c.empresa : "");
+  document.getElementById("ct_nombre").value = c ? c.nombre : "";
+  document.getElementById("ct_cargo").value = c ? c.cargo : "";
+  document.getElementById("ct_email").value = c ? c.email : "";
+  document.getElementById("ct_telefono").value = c ? c.telefono : "";
+  document.getElementById("ct_pais").value = c ? c.pais : "";
+  document.getElementById("ct_ubicacion").value = c ? c.ubicacion : "";
+  document.getElementById("ct_notas").value = c ? c.notas : "";
+  document.getElementById("btnEliminarContacto").style.display = c ? "inline-block" : "none";
+  document.getElementById("overlayContacto").classList.add("activo");
+}
+
+document.getElementById("btnNuevoCliente").addEventListener("click", () => abrirModalClienteBD(null));
+document.getElementById("btnNuevoProveedor").addEventListener("click", () => abrirModalProveedorBD(null));
+document.getElementById("btnNuevoContacto").addEventListener("click", () => abrirModalContactoBD(null));
+document.getElementById("btnCancelarCliente").addEventListener("click", () => document.getElementById("overlayCliente").classList.remove("activo"));
+document.getElementById("btnCancelarProveedor").addEventListener("click", () => document.getElementById("overlayProveedor").classList.remove("activo"));
+document.getElementById("btnCancelarContacto").addEventListener("click", () => document.getElementById("overlayContacto").classList.remove("activo"));
+document.getElementById("buscarCliente").addEventListener("input", renderTablaClientesBD);
+document.getElementById("buscarProveedor").addEventListener("input", renderTablaProveedoresBD);
+document.getElementById("buscarContacto").addEventListener("input", renderTablaContactosBD);
+
+// Tras guardar/eliminar en la base de datos, se refrescan los arrays en memoria y TAMBIÉN
+// poblarSelects() — así si el comercial abre "+ Nueva oportunidad" después, el desplegable ya
+// tiene el cliente/proveedor recién cargado, sin tocar nada más.
+async function refrescarTrasEdicionBD(){
+  await cargarBasesMaestras();
+  renderTablaClientesBD(); renderTablaProveedoresBD(); renderTablaContactosBD();
+  poblarSelects();
+  actualizarContactosGuardadosUI();
+  actualizarContactoProveedorGuardadoUI();
+}
+
+document.getElementById("formCliente").addEventListener("submit", async e => {
+  e.preventDefault();
+  const empresa = document.getElementById("c_empresa").value.trim();
+  const fields = { Title: empresa, Empresa: empresa, Notas: document.getElementById("c_notas").value.trim() };
+  try {
+    if(editandoClienteIdBD){
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items/${editandoClienteIdBD}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
+    } else {
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items`, { method: "POST", body: JSON.stringify({ fields }) });
+    }
+    document.getElementById("overlayCliente").classList.remove("activo");
+    await refrescarTrasEdicionBD();
+  } catch(err){ alert("No se pudo guardar: " + err.message); }
+});
+document.getElementById("formProveedor").addEventListener("submit", async e => {
+  e.preventDefault();
+  const nombre = document.getElementById("p_nombre").value.trim();
+  const fields = {
+    Title: nombre,
+    NombreVendor: nombre,
+    Web: document.getElementById("p_web").value.trim(),
+    Productos: document.getElementById("p_productos").value.trim(),
+    Descripcion: document.getElementById("p_descripcion").value.trim(),
+  };
+  try {
+    if(editandoProveedorIdBD){
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items/${editandoProveedorIdBD}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
+    } else {
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items`, { method: "POST", body: JSON.stringify({ fields }) });
+    }
+    document.getElementById("overlayProveedor").classList.remove("activo");
+    await refrescarTrasEdicionBD();
+  } catch(err){ alert("No se pudo guardar: " + err.message); }
+});
+document.getElementById("formContacto").addEventListener("submit", async e => {
+  e.preventDefault();
+  const nombre = document.getElementById("ct_nombre").value.trim();
+  const fields = {
+    Title: nombre,
+    NombreContacto: nombre,
+    TipoEmpresa: document.getElementById("ct_tipo").value,
+    Empresa: document.getElementById("ct_empresa").value,
+    Cargo: document.getElementById("ct_cargo").value.trim(),
+    Email: document.getElementById("ct_email").value.trim(),
+    Telefono: document.getElementById("ct_telefono").value.trim(),
+    Pais: document.getElementById("ct_pais").value.trim(),
+    Ubicacion: document.getElementById("ct_ubicacion").value.trim(),
+    Notas: document.getElementById("ct_notas").value.trim(),
+  };
+  if(!fields.TipoEmpresa || !fields.Empresa){
+    alert("Elegí el tipo de empresa y la empresa antes de guardar.");
+    return;
+  }
+  // País obligatorio para contactos de Cliente: sin este dato, el CRM no puede diferenciar filiales
+  // del mismo cliente (ej. Claro Guatemala vs. Claro Argentina) y el contacto quedaría inutilizable
+  // como opción en el deal.
+  if(fields.TipoEmpresa === "Cliente" && !fields.Pais){
+    alert("El País es obligatorio para contactos de Cliente (para diferenciar filiales del mismo cliente, ej. Claro Guatemala vs. Claro Argentina).");
+    document.getElementById("ct_pais").focus();
+    return;
+  }
+  try {
+    if(editandoContactoIdBD){
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items/${editandoContactoIdBD}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
+    } else {
+      await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items`, { method: "POST", body: JSON.stringify({ fields }) });
+    }
+    document.getElementById("overlayContacto").classList.remove("activo");
+    await refrescarTrasEdicionBD();
+  } catch(err){ alert("No se pudo guardar: " + err.message); }
+});
+document.getElementById("btnEliminarCliente").addEventListener("click", async () => {
+  if(!editandoClienteIdBD || !confirm("¿Eliminar este cliente? Los contactos linkeados a él van a quedar sin empresa asociada.")) return;
+  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items/${editandoClienteIdBD}`, { method: "DELETE" });
+  document.getElementById("overlayCliente").classList.remove("activo");
+  await refrescarTrasEdicionBD();
+});
+document.getElementById("btnEliminarProveedor").addEventListener("click", async () => {
+  if(!editandoProveedorIdBD || !confirm("¿Eliminar este proveedor? Los contactos linkeados a él van a quedar sin empresa asociada.")) return;
+  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items/${editandoProveedorIdBD}`, { method: "DELETE" });
+  document.getElementById("overlayProveedor").classList.remove("activo");
+  await refrescarTrasEdicionBD();
+});
+document.getElementById("btnEliminarContacto").addEventListener("click", async () => {
+  if(!editandoContactoIdBD || !confirm("¿Eliminar este contacto?")) return;
+  await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items/${editandoContactoIdBD}`, { method: "DELETE" });
+  document.getElementById("overlayContacto").classList.remove("activo");
+  await refrescarTrasEdicionBD();
+});
 
 function renderTablero(){
   const filtros = leerFiltros();
@@ -2110,6 +2540,15 @@ function poblarSelectEtapa(soloAlta){
 }
 
 function abrirModal(id){
+  // Si había una oportunidad pausada (píldora visible): si es la misma (mismo id, o ambas "nueva"
+  // sin guardar todavía) la retoma tal cual sin tocar nada; si es otra distinta, confirma antes de
+  // pisarla — el resto de abrirModal() resetea el form entero.
+  const pausada = document.getElementById("pildoraOportunidadPausada").classList.contains("visible");
+  if(pausada){
+    if(id === editandoId){ reanudarModalOportunidad(); return; }
+    if(!confirm("Tenés una oportunidad sin guardar (la que pausaste al cambiar de pestaña). Si abrís otra ahora, se pierde lo que tenías cargado. ¿Continuar de todos modos?")) return;
+    document.getElementById("pildoraOportunidadPausada").classList.remove("visible");
+  }
   editandoId = id || null;
   const overlay = document.getElementById("overlay");
   const btnEliminar = document.getElementById("btnEliminar");
@@ -2259,6 +2698,7 @@ document.getElementById("f_etapa").addEventListener("change", actualizarVisibili
 
 function cerrarModal(){
   document.getElementById("overlay").classList.remove("activo");
+  document.getElementById("pildoraOportunidadPausada").classList.remove("visible");
   editandoId = null;
 }
 
@@ -2553,7 +2993,13 @@ async function iniciarApp(){
       cuentaActiva = cuentas[0];
       try {
         await cargarDealsDesdeGraph();
-        cargarBasesMaestras().then(() => { poblarSelects(); actualizarContactoProveedorGuardadoUI(); }); // best-effort, no bloquea el resto de la conexión
+        cargarBasesMaestras().then(() => {
+          poblarSelects(); actualizarContactoProveedorGuardadoUI();
+          // Si la pestaña activa es Clientes/Proveedores/Contactos, la vuelve a renderizar ahora
+          // que ya llegaron los datos reales (antes de esto, si el usuario entró directo por hash
+          // en #clientes por ej., la tabla habría quedado vacía esperando la conexión).
+          if(["clientes", "proveedores", "contactos"].includes(vistaActual)) cambiarVista(vistaActual);
+        }); // best-effort, no bloquea el resto de la conexión
         modoConectado = true;
         activarUIConectado();
       } catch (e) {
@@ -2570,7 +3016,18 @@ async function iniciarApp(){
   }
   poblarSelects();
   renderTablero();
+  // Ruteo simple por hash (#tablero, #estadisticas, #clientes, #proveedores, #contactos): permite
+  // que un link abierto en pestaña nueva (ej. "gestionar clientes/contactos ↗" desde el modal de
+  // oportunidad) caiga directo en la pestaña correcta, sin depender de un click manual.
+  const hashInicial = location.hash.slice(1);
+  if(["tablero", "estadisticas", "clientes", "proveedores", "contactos"].includes(hashInicial)){
+    cambiarVista(hashInicial);
+  }
 }
+window.addEventListener("hashchange", () => {
+  const h = location.hash.slice(1);
+  if(["tablero", "estadisticas", "clientes", "proveedores", "contactos"].includes(h) && h !== vistaActual) cambiarVista(h);
+});
 iniciarApp();
 </script>
 
