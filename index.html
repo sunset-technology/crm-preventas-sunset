@@ -558,6 +558,32 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     margin:0 0 14px;
     color:var(--azul-sunset);
   }
+  /* Drill-down de Estadísticas (1 sep 2026): modal más ancho para listar deals en formato tabla,
+     en vez del formulario angosto de una sola oportunidad. */
+  .modal.modal-ancho{
+    width:820px;
+    max-width:94vw;
+  }
+  .tabla-lista-deals{
+    width:100%;
+    border-collapse:collapse;
+  }
+  .tabla-lista-deals th, .tabla-lista-deals td{
+    padding:8px 10px;
+    text-align:left;
+    font-size:12.5px;
+    border-bottom:1px solid var(--borde);
+  }
+  .tabla-lista-deals th{
+    color:var(--texto-suave);
+    font-weight:700;
+    text-transform:uppercase;
+    font-size:10.5px;
+    letter-spacing:.03em;
+  }
+  .tabla-lista-deals tbody tr{cursor:pointer;}
+  .tabla-lista-deals tbody tr:hover{background:var(--fondo);}
+  .tabla-lista-deals tr:last-child td{border-bottom:none;}
   .campo{margin-bottom:12px;}
   .campo label{
     display:block;
@@ -842,8 +868,9 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
       <div class="fila2">
         <div class="campo">
           <label>Vendedor / Responsable comercial</label>
-          <input type="text" id="f_vendedor" list="dl_vendedores" required placeholder="Elegí uno o escribí uno nuevo" autocomplete="off">
-          <datalist id="dl_vendedores"></datalist>
+          <select id="f_vendedor" required>
+            <option value="">— Elegí un comercial —</option>
+          </select>
         </div>
         <div class="campo">
           <label>Etapa</label>
@@ -961,6 +988,10 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
         <label>Fecha de adjudicación <span style="font-weight:400;">(fecha real de cierre — la completa Flujo B automáticamente al ganar el CANS)</span></label>
         <div id="indicadorFechaAdjudicacion" style="font-size:12.5px; color:var(--texto-suave);"></div>
       </div>
+      <div class="campo" id="wrapFechaCierreReal" style="display:none;">
+        <label>Fecha de cierre <span style="font-weight:400;">(se completa sola al pasar a Won acá en el CRM, no se puede cargar a mano)</span></label>
+        <div id="indicadorFechaCierreReal" style="font-size:12.5px; color:var(--texto-suave);"></div>
+      </div>
       <div class="modal-acciones">
         <button type="button" class="btn-eliminar" id="btnEliminar" style="display:none;">Eliminar</button>
         <div style="display:flex; gap:8px; margin-left:auto;">
@@ -1019,6 +1050,25 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 <div class="toast" id="toast">
   <span id="toastTexto"></span>
   <button type="button" id="btnDeshacer">Deshacer</button>
+</div>
+
+<!-- Drill-down de Estadísticas (1 sep 2026): click en una tarjeta resumen o una fila "Por etapa"
+     abre este modal con la lista de deals de ese subconjunto. Click afuera cierra (interacción
+     corta, mismo criterio que los demás overlays cortos — no necesita el mecanismo de pausa). -->
+<div class="overlay" id="overlayListaDeals">
+  <div class="modal modal-ancho">
+    <h2 id="listaDealsTitulo"></h2>
+    <div id="listaDealsResumen" style="font-size:12.5px; color:var(--texto-suave); margin:-8px 0 12px;"></div>
+    <div style="max-height:60vh; overflow-y:auto;">
+      <table class="tabla-lista-deals">
+        <thead><tr><th>Deal</th><th>Cliente</th><th>País</th><th>Vendedor</th><th>Etapa</th><th>Valor</th></tr></thead>
+        <tbody id="listaDealsTbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-acciones" style="justify-content:flex-end;">
+      <button type="button" class="btn-secundario" id="btnListaDealsCerrar">Cerrar</button>
+    </div>
+  </div>
 </div>
 
 <div class="pildora-oportunidad-pausada" id="pildoraOportunidadPausada">📝 Oportunidad sin guardar — Continuar</div>
@@ -1186,6 +1236,11 @@ const LIST_ID = "ac92e48e-0529-4ac3-91fc-d0eaf212e1e7";
 const LIST_ID_CLIENTES = "7d8a178f-91c7-4088-a89d-4e173faa6d9e"; // lista Contactos
 const LIST_ID_VENDORS = "f88ac83e-7197-4772-a140-14f092ed32c0"; // lista Vendors_Info (empresas proveedoras)
 const LIST_ID_CLIENTES_EMPRESAS = "7a499509-5ae6-4dfc-9084-00b8022cedef"; // lista Clientes (empresas)
+// Comerciales_Preventas (1 sep 2026): roster de comerciales/presales con su email real y si es admin.
+// Fuente única para: (1) el combo cerrado Vendedor del deal (ya no texto libre), (2) el candado de
+// "solo el dueño del deal puede moverlo de etapa" (ver puedeMoverEtapa), y (3) el flujo de Power
+// Automate que Patricio está armando para dar permisos de carpeta según el dueño del proceso.
+const LIST_ID_COMERCIALES = "ec0b137a-292b-4a61-ae2e-c5f672c2f385";
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 // Valores EXACTOS del choice "Etapa" en SharePoint (confirmados vía REST, 13 ago 2026).
@@ -1249,6 +1304,17 @@ const CAMPO_SP = {
   // Número de trazabilidad del deal (AAAAMM-###), asignado una sola vez al crearlo — columna nueva
   // creada sin acentos/espacios en el nombre a propósito, para que el InternalName sea igual (24 ago 2026).
   numeroDeal: "NumeroDeal",
+  // Email real del comercial dueño del deal (1 sep 2026) — se completa solo, eligiendo del combo
+  // Vendedor (ver poblarSelectVendedor). "vendedor" (arriba) sigue guardando el nombre para mostrar
+  // en tarjetas/filtros/CSV; este campo es la identidad que usan el candado de mover etapa y,
+  // a futuro, el flujo de permisos de carpeta de Patricio.
+  vendedorEmail: "VendedorEmail",
+  // Fecha de cierre real (1 sep 2026): se completa SOLA la primera vez que el deal pasa a Won
+  // (ver moverDeal() y el submit del modal) — nunca hay un input para cargarla a mano. Distinta de
+  // "Fecha de adjudicación" (fechaAdjudicacion, arriba), que la escribe Flujo B leyendo el CANS real;
+  // esta es la fecha en que el comercial lo pasó a Won acá en el CRM, y sirve de respaldo si Flujo B
+  // todavía no corrió o falla.
+  fechaCierreReal: "FechaCierreReal",
 };
 
 let msalInstance = null;
@@ -1261,7 +1327,22 @@ let msalReadyPromise = null;  // MSAL v3 exige llamar a initialize() (async) ant
 // (ver eliminarDealEnGraph); no reemplaza permisos reales de SharePoint, es un candado a nivel app.
 const ADMIN_EMAIL = "pcamussi@sunset.tech";
 function esAdmin(){
-  return !!cuentaActiva && (cuentaActiva.username || "").toLowerCase() === ADMIN_EMAIL;
+  if(!cuentaActiva) return false;
+  const email = (cuentaActiva.username || "").toLowerCase();
+  if(email === ADMIN_EMAIL) return true; // fallback duro: nunca depende de que la lista Comerciales_Preventas haya cargado
+  const c = comerciales.find(x => x.email === email);
+  return !!(c && c.esAdmin);
+}
+
+// Candado de "solo el dueño mueve el deal de etapa" (1 sep 2026, a pedido de Patricio): igual que
+// esAdmin(), es un candado a nivel app (no un permiso real de SharePoint) — evita que un comercial
+// mueva por error el deal de otro. Deals viejos sin VendedorEmail cargado (previos a este cambio, o
+// nunca guardados desde que existe el campo) quedan sin restricción hasta que alguien los vuelva a
+// guardar con un Vendedor asignado — así no se traba de golpe el tablero con los deals existentes.
+function puedeMoverEtapa(deal){
+  if(esAdmin()) return true;
+  if(!deal.vendedorEmail) return true;
+  return !!cuentaActiva && (cuentaActiva.username || "").toLowerCase() === deal.vendedorEmail.toLowerCase();
 }
 
 function initMsal(){
@@ -1337,6 +1418,7 @@ function dealDesdeItemGraph(item){
     clienteFinal: f[CAMPO_SP.clienteFinal] || "",
     pais: f[CAMPO_SP.pais] || "",
     vendedor: f[CAMPO_SP.vendedor] || "",
+    vendedorEmail: f[CAMPO_SP.vendedorEmail] || "",
     etapa: ETAPA_DESDE_SP[f.Etapa] || "universe",
     sucursal: f[CAMPO_SP.sucursal] || "",
     valor: Number(f[CAMPO_SP.valor]) || 0,
@@ -1357,6 +1439,7 @@ function dealDesdeItemGraph(item){
     cansCreado: !!f[CAMPO_SP.cansCreado],
     fechaCreacionCans: (f[CAMPO_SP.fechaCreacionCans] || "").slice(0, 10),
     fechaAdjudicacion: (f[CAMPO_SP.fechaAdjudicacion] || "").slice(0, 10),
+    fechaCierreReal: (f[CAMPO_SP.fechaCierreReal] || "").slice(0, 10),
     upside: !!f[CAMPO_SP.upside],
     fechaCambioEtapa: f[CAMPO_SP.fechaCambioEtapa]
       ? f[CAMPO_SP.fechaCambioEtapa].slice(0, 10)
@@ -1373,6 +1456,7 @@ function camposGraphDesdeDeal(datos){
   if(datos.clienteFinal !== undefined) fields[CAMPO_SP.clienteFinal] = datos.clienteFinal || "";
   if(datos.pais !== undefined) fields[CAMPO_SP.pais] = datos.pais;
   if(datos.vendedor !== undefined) fields[CAMPO_SP.vendedor] = datos.vendedor;
+  if(datos.vendedorEmail !== undefined) fields[CAMPO_SP.vendedorEmail] = datos.vendedorEmail || "";
   if(datos.etapa !== undefined) fields.Etapa = ETAPA_SP_VALUE[datos.etapa] || datos.etapa;
   if(datos.sucursal !== undefined && datos.sucursal) fields[CAMPO_SP.sucursal] = datos.sucursal;
   if(datos.valor !== undefined) fields[CAMPO_SP.valor] = Number(datos.valor) || 0;
@@ -1402,6 +1486,11 @@ function camposGraphDesdeDeal(datos){
   if(datos.fechaCambioEtapa !== undefined && datos.fechaCambioEtapa){
     fields[CAMPO_SP.fechaCambioEtapa] = datos.fechaCambioEtapa + "T00:00:00Z";
   }
+  // Fecha de cierre real: solo se manda cuando moverDeal()/el submit del modal la acaban de completar
+  // (ver esos 2 lugares) — nunca se pisa desde acá con datos.fechaCierreReal porque el form no la trae.
+  if(datos.fechaCierreReal !== undefined && datos.fechaCierreReal){
+    fields[CAMPO_SP.fechaCierreReal] = datos.fechaCierreReal + "T00:00:00Z";
+  }
   // CANScreado y Fecha de creación del CANS son de solo lectura para el CRM (los escribe Flujo A) —
   // deliberadamente no se incluyen acá para no pisar lo que ya haya escrito ese flujo.
   return fields;
@@ -1423,14 +1512,21 @@ let clientesEmpresas = [];     // [{empresa, notas}] — fuente del desplegable 
 let proveedoresEmpresas = [];  // [{nombre, web, productos, descripcion}] — fuente de Proveedores involucrados
 let contactosClientes = [];    // [{empresa, nombre, cargo, email, telefono}] — TipoEmpresa=Cliente
 let contactosProveedor = [];   // [{empresa, nombre, cargo, email, telefono}] — TipoEmpresa=Proveedor
+let comerciales = [];          // [{nombre, email, esAdmin}] — lista Comerciales_Preventas
 
 async function cargarBasesMaestras(){
   try {
-    const [dc, dp, dct] = await Promise.all([
+    const [dc, dp, dct, dcom] = await Promise.all([
       graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items?expand=fields&$top=1000`),
       graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items?expand=fields&$top=1000`),
       graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items?expand=fields&$top=1000`),
+      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_COMERCIALES}/items?expand=fields&$top=1000`),
     ]);
+    comerciales = (dcom.value || []).map(it => ({
+      nombre: it.fields.Title || "",
+      email: (it.fields.Email || "").toLowerCase(),
+      esAdmin: !!it.fields.EsAdmin,
+    })).filter(c => c.nombre && c.email);
     clientesEmpresas = (dc.value || []).map(it => ({ id: it.id, empresa: it.fields.Empresa || "", notas: it.fields.Notas || "" }));
     proveedoresEmpresas = (dp.value || []).map(it => ({
       id: it.id,
@@ -1649,6 +1745,10 @@ let vendorsSeleccionados = [];  // vendors del deal que se está editando/creand
 let contactosProveedorPorVendor = {};
 let editandoId = null;
 let etapaOriginal = null;
+// Grupos de deals detrás de cada tarjeta/fila clickeable de Estadísticas (1 sep 2026) — recalculado
+// en cada renderEstadisticas(), leído por abrirListaDeals() cuando se hace click. Claves: "abierto",
+// "ganadas", "perdidas", "cierres", y "etapa:<id>" por cada etapa.
+let ultimosGruposEstadisticas = {};
 let pendingConfirm = null;    // { dealId, etapaDestino } mientras espera confirmación de cierre
 let pendingLink = null;       // { dealId, etapaDestino, tipo: 'cans'|'propuesta' } mientras espera que se pegue un link
 let deshacerStack = [];       // [{ id, etapaAnterior, fechaAnterior }, ...] pila de movimientos recientes, el último al final
@@ -1720,6 +1820,20 @@ function aniosUnicos(){
   return [...new Set(deals.filter(d => d.fecha).map(d => d.fecha.slice(0, 4)))].sort().reverse();
 }
 
+// Comerciales_Preventas es la única fuente de opciones acá: si alguien nuevo se suma al equipo,
+// se agrega como fila en esa lista de SharePoint (Nombre, Email, EsAdmin) y "🔄 Actualizar listas"
+// en el modal lo trae sin tocar código — no hay alta automática vía grupo de Azure AD (no
+// disponible con el permiso Sites.Selected que usa esta app).
+function poblarSelectVendedor(){
+  const sel = document.getElementById("f_vendedor");
+  if(!sel) return;
+  const actual = sel.value;
+  const opciones = [...comerciales].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  sel.innerHTML = sel.querySelector("option").outerHTML +
+    opciones.map(c => `<option value="${escapeHtml(c.email)}">${escapeHtml(c.nombre)}</option>`).join("");
+  if(opciones.some(c => c.email === actual)) sel.value = actual;
+}
+
 function poblarSelects(){
   const poblar = (id, valores, etiquetaTodos) => {
     const sel = document.getElementById(id);
@@ -1747,12 +1861,9 @@ function poblarSelects(){
   poblarSelectCerrado("f_pais", PAISES_BASE, paisesUnicos());
   poblarSelectCerrado("f_clienteFinal", clientesEmpresas.map(c => c.empresa).filter(Boolean), clientesFinalesUnicos());
 
-  // Vendedor sigue siendo ad hoc (se puede escribir uno nuevo directo acá).
-  const poblarDatalist = (id, base, enUso) => {
-    const valores = [...new Set([...base, ...enUso])].sort();
-    document.getElementById(id).innerHTML = valores.map(v => `<option value="${v}"></option>`).join("");
-  };
-  poblarDatalist("dl_vendedores", VENDEDORES_BASE, vendedoresUnicos());
+  // Vendedor (1 sep 2026): dejó de ser texto libre — combo cerrado con el roster de Comerciales_Preventas,
+  // guarda el email real como value (ver CAMPO_SP.vendedorEmail) y el nombre como texto visible.
+  poblarSelectVendedor();
 
   poblarSelectEtapa(false); // población inicial: completa (abrirModal la vuelve a poblar según alta/edición)
 
@@ -1854,11 +1965,18 @@ function renderEstadisticas(filtros){
     return;
   }
 
+  // Grupos para el drill-down de Estadísticas (1 sep 2026) — se completa acá (por etapa) y más abajo
+  // (tarjetas resumen); se declara vacío primero y se le van agregando claves, nunca se reasigna
+  // entero, para no perder lo que ya se haya cargado en este mismo render.
+  ultimosGruposEstadisticas = {};
+  ETAPAS.forEach(etapa => {
+    ultimosGruposEstadisticas[`etapa:${etapa.id}`] = { titulo: etapa.nombre, deals: dealsF.filter(d => d.etapa === etapa.id) };
+  });
   const filasEtapa = ETAPAS.map(etapa => {
     const dealsEtapa = dealsF.filter(d => d.etapa === etapa.id);
     const dias = dealsEtapa.map(d => diasEnEtapa(d.fechaCambioEtapa)).filter(x => x !== null);
     const promedioDias = dias.length > 0 ? Math.round(dias.reduce((s, x) => s + x, 0) / dias.length) : null;
-    return `<tr><td>${escapeHtml(etapa.nombre)}</td><td>${dealsEtapa.length}</td><td>${fmtUSD(sumaValor(dealsEtapa))}</td><td>${promedioDias === null ? "—" : promedioDias + " días"}</td></tr>`;
+    return `<tr style="cursor:pointer;" data-grupo="etapa:${etapa.id}"><td>${escapeHtml(etapa.nombre)}</td><td>${dealsEtapa.length}</td><td>${fmtUSD(sumaValor(dealsEtapa))}</td><td>${promedioDias === null ? "—" : promedioDias + " días"}</td></tr>`;
   }).join("");
 
   const filasPor = (valores, obtenerValor) => valores.map(v => {
@@ -1899,12 +2017,23 @@ function renderEstadisticas(filtros){
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 10);
 
+  // Drill-down (1 sep 2026): las 4 tarjetas resumen quedan clickeables y abren la lista de deals
+  // detrás del número — guardado en la misma variable de módulo que ya tiene los grupos por etapa
+  // (ver más arriba), para que el click (delegado más abajo, fuera de este innerHTML) sepa qué
+  // mostrar sin tener que re-filtrar.
+  Object.assign(ultimosGruposEstadisticas, {
+    abierto: { titulo: "Pipeline abierto", deals: abiertos },
+    ganadas: { titulo: "Ganadas", deals: ganados },
+    perdidas: { titulo: "Perdidas", deals: perdidos },
+    cierres: { titulo: "Ganadas + Perdidas (cierres)", deals: [...ganados, ...perdidos] },
+  });
+
   cont.innerHTML = `
     <div class="stats-resumen">
-      <div class="stats-card"><div class="etiqueta">Pipeline abierto</div><div class="valor-grande">${abiertos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(abiertos))}</div></div>
-      <div class="stats-card"><div class="etiqueta">Ganadas</div><div class="valor-grande">${ganados.length}</div><div class="etiqueta">${fmtUSD(sumaValor(ganados))}</div></div>
-      <div class="stats-card"><div class="etiqueta">Perdidas</div><div class="valor-grande">${perdidos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(perdidos))}</div></div>
-      <div class="stats-card"><div class="etiqueta">Tasa de conversión</div><div class="valor-grande">${tasaConversion === null ? "—" : tasaConversion + "%"}</div><div class="etiqueta">${cierres} cierre${cierres === 1 ? "" : "s"}</div></div>
+      <div class="stats-card" style="cursor:pointer;" data-grupo="abierto"><div class="etiqueta">Pipeline abierto</div><div class="valor-grande">${abiertos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(abiertos))}</div></div>
+      <div class="stats-card" style="cursor:pointer;" data-grupo="ganadas"><div class="etiqueta">Ganadas</div><div class="valor-grande">${ganados.length}</div><div class="etiqueta">${fmtUSD(sumaValor(ganados))}</div></div>
+      <div class="stats-card" style="cursor:pointer;" data-grupo="perdidas"><div class="etiqueta">Perdidas</div><div class="valor-grande">${perdidos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(perdidos))}</div></div>
+      <div class="stats-card" style="cursor:pointer;" data-grupo="cierres"><div class="etiqueta">Tasa de conversión</div><div class="valor-grande">${tasaConversion === null ? "—" : tasaConversion + "%"}</div><div class="etiqueta">${cierres} cierre${cierres === 1 ? "" : "s"}</div></div>
     </div>
 
     <div class="stats-graficos">
@@ -1934,6 +2063,51 @@ function renderEstadisticas(filtros){
     ${tablaHtml("Por país", "País", porPais)}
   `;
 }
+
+// ---- Drill-down de Estadísticas (1 sep 2026): click en una tarjeta resumen o una fila "Por etapa"
+// abre la lista de deals de ese grupo, en un modal ancho tipo tabla. Click en una fila de esa tabla
+// abre el modal completo del deal (cierra la lista primero, para no apilar overlays).
+function abrirListaDeals(clave){
+  const grupo = ultimosGruposEstadisticas[clave];
+  if(!grupo || grupo.deals.length === 0) return;
+  document.getElementById("listaDealsTitulo").textContent = grupo.titulo;
+  const sumaValor = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0), 0);
+  document.getElementById("listaDealsResumen").textContent =
+    `${grupo.deals.length} oportunidad${grupo.deals.length === 1 ? "" : "es"} · ${fmtUSD(sumaValor(grupo.deals))}`;
+  const filas = [...grupo.deals]
+    .sort((a, b) => (Number(b.valor) || 0) - (Number(a.valor) || 0))
+    .map(d => `
+      <tr data-id="${d.id}">
+        <td>${d.numeroDeal ? `<span style="color:var(--texto-suave);">${escapeHtml(d.numeroDeal)}</span> · ` : ""}${escapeHtml(d.titulo)}</td>
+        <td>${escapeHtml(d.cliente)}</td>
+        <td>${escapeHtml(d.pais)}</td>
+        <td>${escapeHtml(d.vendedor)}</td>
+        <td>${escapeHtml((ETAPAS.find(e => e.id === d.etapa) || {}).nombre || d.etapa)}</td>
+        <td>${fmtUSD(d.valor)}</td>
+      </tr>
+    `).join("");
+  document.getElementById("listaDealsTbody").innerHTML = filas;
+  document.getElementById("overlayListaDeals").classList.add("activo");
+}
+function cerrarListaDeals(){
+  document.getElementById("overlayListaDeals").classList.remove("activo");
+}
+document.getElementById("vistaEstadisticas").addEventListener("click", e => {
+  const filaDeal = e.target.closest("tr[data-grupo]");
+  const card = e.target.closest(".stats-card[data-grupo]");
+  const origen = filaDeal || card;
+  if(origen) abrirListaDeals(origen.dataset.grupo);
+});
+document.getElementById("listaDealsTbody").addEventListener("click", e => {
+  const fila = e.target.closest("tr[data-id]");
+  if(!fila) return;
+  cerrarListaDeals();
+  abrirModal(fila.dataset.id);
+});
+document.getElementById("btnListaDealsCerrar").addEventListener("click", cerrarListaDeals);
+document.getElementById("overlayListaDeals").addEventListener("click", e => {
+  if(e.target.id === "overlayListaDeals") cerrarListaDeals();
+});
 
 const VISTAS_NAV = ["Tablero", "Estadisticas", "Clientes", "Proveedores", "Contactos"];
 // ---- Permite seguir cambiando de pestaña (Clientes/Proveedores/Contactos/Estadísticas) con el
@@ -2255,6 +2429,13 @@ function renderTablero(){
       const etapaDestino = body.dataset.etapa;
       if(!deal || deal.etapa === etapaDestino) return;
 
+      // Doble chequeo (la tarjeta ya no es draggable si no corresponde, ver crearTarjeta): por si
+      // el drop llega igual, por ejemplo arrastrando desde otra tarjeta encima de esta.
+      if(!puedeMoverEtapa(deal)){
+        abrirBloqueo(`No podés mover "${deal.titulo}" de etapa: solo puede hacerlo el comercial dueño del deal o un administrador.`);
+        return;
+      }
+
       if(ETAPAS_CIERRE.includes(etapaDestino)){
         abrirConfirmacionCierre(deal, etapaDestino);
       } else if(!deal.fecha){
@@ -2287,7 +2468,9 @@ function esUrlSegura(url){
 function crearTarjeta(d){
   const el = document.createElement("div");
   el.className = "tarjeta";
-  el.draggable = true;
+  const puedeMover = puedeMoverEtapa(d);
+  el.draggable = puedeMover;
+  if(!puedeMover) el.title = "Solo el comercial dueño de este deal (o un administrador) puede moverlo de etapa. Podés abrirlo igual para verlo o editar otros datos.";
   el.dataset.id = d.id;
 
   const vencida = fechaVencida(d.fechaProximaAccion);
@@ -2338,15 +2521,23 @@ function moverDeal(deal, etapaDestino, opciones = {}){
   const mostrarToast = opciones.mostrarToast !== false;
   const etapaAnterior = deal.etapa;
   const fechaAnterior = deal.fechaCambioEtapa;
+  const fechaCierreRealAnterior = deal.fechaCierreReal;
 
   deal.etapa = etapaDestino;
   deal.fechaCambioEtapa = hoyISO();
+  // Fecha de cierre real (1 sep 2026, a pedido de Patricio): se completa sola, una sola vez, la
+  // primera vez que el deal pasa a Won — nunca se puede cargar a mano (no hay input para esto en
+  // el form). Si ya la tenía (ej. se movió a otra etapa y volvió a Won), no se pisa.
+  if(etapaDestino === "won" && !deal.fechaCierreReal) deal.fechaCierreReal = hoyISO();
   renderTablero();
 
   if(modoConectado){
-    actualizarDealEnGraph(deal.id, { etapa: etapaDestino, fechaCambioEtapa: deal.fechaCambioEtapa }).catch(e => {
+    const cambios = { etapa: etapaDestino, fechaCambioEtapa: deal.fechaCambioEtapa };
+    if(deal.fechaCierreReal !== fechaCierreRealAnterior) cambios.fechaCierreReal = deal.fechaCierreReal;
+    actualizarDealEnGraph(deal.id, cambios).catch(e => {
       deal.etapa = etapaAnterior;
       deal.fechaCambioEtapa = fechaAnterior;
+      deal.fechaCierreReal = fechaCierreRealAnterior;
       renderTablero();
       mostrarErrorGraph("mover etapa", e);
     });
@@ -2573,9 +2764,18 @@ function abrirModal(id){
     document.getElementById("f_pais").value = d.pais;
     document.getElementById("f_clienteFinal").value = d.clienteFinal || "";
     actualizarContactosGuardadosUI(); // depende de f_cliente Y f_pais, tienen que estar seteados antes
-    document.getElementById("f_vendedor").value = d.vendedor;
+    // Deals viejos (previos al 1 sep 2026) pueden no tener vendedorEmail todavía — se intenta resolver
+    // por nombre contra el roster actual como respaldo, para que el combo no quede vacío sin motivo.
+    document.getElementById("f_vendedor").value = d.vendedorEmail ||
+      (comerciales.find(c => c.nombre.toLowerCase() === (d.vendedor || "").toLowerCase())?.email) || "";
     poblarSelectEtapa(false); // editando: se muestran todas las etapas, incluso Forecast/Won/Lost
     document.getElementById("f_etapa").value = d.etapa;
+    // Candado de mover etapa (1 sep 2026): si no sos el dueño ni admin, el combo Etapa queda solo
+    // lectura — mismo criterio que se aplica al arrastrar la tarjeta en el tablero (puedeMoverEtapa).
+    const puedeEtapa = puedeMoverEtapa(d);
+    const selEtapa = document.getElementById("f_etapa");
+    selEtapa.disabled = !puedeEtapa;
+    selEtapa.title = puedeEtapa ? "" : "Solo el comercial dueño de este deal (o un administrador) puede cambiarle la etapa.";
     document.getElementById("f_sucursal").value = d.sucursal || "";
     document.getElementById("f_valor").value = d.valor;
     document.getElementById("f_upside").checked = !!d.upside;
@@ -2606,6 +2806,10 @@ function abrirModal(id){
     document.getElementById("indicadorFechaAdjudicacion").textContent = d.fechaAdjudicacion
       ? fmtFecha(d.fechaAdjudicacion) + (d.fecha ? ` — estimado vs. real: ${diferenciaDiasFechas(d.fecha, d.fechaAdjudicacion)}` : "")
       : "Todavía no se ganó (la completa Flujo B automáticamente).";
+    document.getElementById("wrapFechaCierreReal").style.display = "block";
+    document.getElementById("indicadorFechaCierreReal").textContent = d.fechaCierreReal
+      ? fmtFecha(d.fechaCierreReal)
+      : "Todavía no se ganó (se completa sola al mover el deal a Won).";
     btnEliminar.style.display = esAdmin() ? "inline-block" : "none";
   } else {
     etapaOriginal = null;
@@ -2614,9 +2818,13 @@ function abrirModal(id){
     document.getElementById("form").reset();
     poblarSelectEtapa(true); // alta nueva: solo las primeras 4 etapas, nunca directo en Forecast en adelante
     document.getElementById("f_etapa").value = "universe";
+    // Deal nuevo: todavía no tiene dueño asignado, el candado de mover etapa no aplica acá.
+    document.getElementById("f_etapa").disabled = false;
+    document.getElementById("f_etapa").title = "";
     document.getElementById("f_upside").checked = false;
     document.getElementById("wrapCansCreado").style.display = "none";
     document.getElementById("wrapFechaAdjudicacion").style.display = "none";
+    document.getElementById("wrapFechaCierreReal").style.display = "none";
     vendorsSeleccionados = [];
     contactosProveedorPorVendor = {};
     renderChipsVendors();
@@ -2777,7 +2985,8 @@ document.getElementById("form").addEventListener("submit", async e => {
     cliente: document.getElementById("f_cliente").value.trim(),
     pais: document.getElementById("f_pais").value.trim(),
     clienteFinal: document.getElementById("f_clienteFinal").value.trim(),
-    vendedor: document.getElementById("f_vendedor").value.trim(),
+    vendedor: document.getElementById("f_vendedor").selectedOptions[0]?.textContent.trim() || "",
+    vendedorEmail: document.getElementById("f_vendedor").value,
     etapa: document.getElementById("f_etapa").value,
     sucursal: document.getElementById("f_sucursal").value,
     probabilidad: PROBABILIDAD_POR_ETAPA[document.getElementById("f_etapa").value] ?? 0,
@@ -2822,6 +3031,16 @@ document.getElementById("form").addEventListener("submit", async e => {
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" como Perdida todavía: falta elegir el motivo de pérdida.`);
     return;
   }
+  // Candado de mover etapa (1 sep 2026): el combo Etapa ya queda disabled en abrirModal() para quien
+  // no puede moverlo, pero este chequeo es el que realmente importa — un disabled se puede sortear
+  // editando el DOM a mano. Doble chequeo, mismo criterio que en el tablero (puedeMoverEtapa).
+  if(editandoId && datos.etapa !== etapaOriginal){
+    const dOriginal = deals.find(x => x.id === editandoId);
+    if(dOriginal && !puedeMoverEtapa(dOriginal)){
+      abrirBloqueo(`No podés cambiar la etapa de "${datos.titulo || "esta oportunidad"}": solo puede moverla el comercial dueño del deal o un administrador.`);
+      return;
+    }
+  }
 
   // Se calcula ANTES de guardar: comparar contra listas ya actualizadas con este mismo deal
   // haría que nunca se detecte un valor como "nuevo".
@@ -2845,8 +3064,14 @@ document.getElementById("form").addEventListener("submit", async e => {
       const cambioEtapa = datos.etapa !== etapaOriginal;
       Object.assign(d, datos);
       if(cambioEtapa) d.fechaCambioEtapa = hoyISO();
+      // Fecha de cierre real (1 sep 2026): mismo criterio que en moverDeal() — se completa sola,
+      // una sola vez, si el guardado desde el modal es lo que hace pasar el deal a Won.
+      const seCompletoCierreReal = cambioEtapa && datos.etapa === "won" && !d.fechaCierreReal;
+      if(seCompletoCierreReal) d.fechaCierreReal = hoyISO();
       if(modoConectado){
-        await actualizarDealEnGraph(d.id, cambioEtapa ? { ...datos, fechaCambioEtapa: d.fechaCambioEtapa } : datos);
+        const cambiosExtra = cambioEtapa ? { fechaCambioEtapa: d.fechaCambioEtapa } : {};
+        if(seCompletoCierreReal) cambiosExtra.fechaCierreReal = d.fechaCierreReal;
+        await actualizarDealEnGraph(d.id, { ...datos, ...cambiosExtra });
       }
     } else {
       const fechaCambioEtapa = hoyISO();
@@ -2920,6 +3145,7 @@ function exportarCSV(){
     ["CANS creado", d => d.cansCreado ? "Sí" : "No"],
     ["Fecha de adjudicación", d => d.fechaAdjudicacion ? fmtFecha(d.fechaAdjudicacion) : ""],
     ["Diferencia estimado vs. real", d => diferenciaDiasFechas(d.fecha, d.fechaAdjudicacion)],
+    ["Fecha de cierre (CRM)", d => d.fechaCierreReal ? fmtFecha(d.fechaCierreReal) : ""],
   ];
   const encabezado = columnas.map(c => escaparCsv(c[0])).join(",");
   const filasCsv = filas.map(d => columnas.map(c => escaparCsv(c[1](d))).join(","));
