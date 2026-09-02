@@ -985,12 +985,8 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
         <div id="indicadorCansCreado" style="font-size:12.5px; color:var(--texto-suave);"></div>
       </div>
       <div class="campo" id="wrapFechaAdjudicacion" style="display:none;">
-        <label>Fecha de adjudicación <span style="font-weight:400;">(fecha real de cierre — la completa Flujo B automáticamente al ganar el CANS)</span></label>
+        <label>Fecha de adjudicación <span style="font-weight:400;">(fecha real de cierre — se completa sola apenas el deal pasa a Won, y Flujo B la corrige después con el dato real del CANS)</span></label>
         <div id="indicadorFechaAdjudicacion" style="font-size:12.5px; color:var(--texto-suave);"></div>
-      </div>
-      <div class="campo" id="wrapFechaCierreReal" style="display:none;">
-        <label>Fecha de cierre <span style="font-weight:400;">(se completa sola al pasar a Won acá en el CRM, no se puede cargar a mano)</span></label>
-        <div id="indicadorFechaCierreReal" style="font-size:12.5px; color:var(--texto-suave);"></div>
       </div>
       <div class="modal-acciones">
         <button type="button" class="btn-eliminar" id="btnEliminar" style="display:none;">Eliminar</button>
@@ -1205,6 +1201,10 @@ const LINK_CONFIG = {
 // de pasar directo de Qualified a Forecast (a pedido de Patricio, 24 ago 2026). Ya no hay soft-prompt
 // para CANS: al ser obligatorio en Proposal, el gate duro cubre el caso antes de llegar a Forecast.
 const GATE_CANS = ["proposal", "forecast", "forecastcommit"];
+// Won solo se puede alcanzar desde Forecast o Forecast Commit (1 sep 2026, a pedido de Patricio) —
+// no se puede saltar de una etapa temprana (ej. Lead/Qualified) directo a Won. Lost no tiene esta
+// restricción: se puede perder un deal desde cualquier etapa.
+const ETAPAS_ORIGEN_WON = ["forecast", "forecastcommit"];
 
 // ==========================================================================
 // ---- Conexión a Microsoft Graph (MSAL.js) ----
@@ -1299,7 +1299,16 @@ const CAMPO_SP = {
   motivoPerdida: "Motivodep_x00e9_rdida",
   cansCreado: "CANScreado",                  // solo lectura acá — lo escribe Flujo A, no el CRM
   fechaCreacionCans: "Fechadecreaci_x00f3_ndelCANS",  // solo lectura acá — lo escribe Flujo A
-  fechaAdjudicacion: "Fecha_x0020_de_x0020_adjudicaci_",  // solo lectura acá — la fecha REAL de cierre, la escribe Flujo B (24 ago 2026)
+  // Fecha de adjudicación = ÚNICA fecha real de cierre (consolidado 1 sep 2026 — hubo un intento de
+  // separarla en 2 campos el mismo día, "Fecha de cierre real" aparte, revertido horas después porque
+  // no tenía sentido tener 2 fechas). Ahora tiene 2 escritores: (1) el CRM la completa apenas el deal
+  // pasa a Won acá (mejor estimación disponible en el momento, ver moverDeal()/submit del modal —
+  // nunca hay un input para cargarla a mano), y (2) Flujo B la pisa después con el dato real que el
+  // comercial cargó en el CANS, cuando el flujo corre. Si se carga el CANS el mismo día que se pasa
+  // el deal a Won acá, coinciden solas; si no, el CRM igual muestra una fecha razonable mientras
+  // tanto en vez de quedar en blanco. La columna huérfana `FechaCierreReal` (creada y usada unas horas
+  // el mismo día) NO se borró de SharePoint por las dudas, pero ya no se lee ni se escribe desde acá.
+  fechaAdjudicacion: "Fecha_x0020_de_x0020_adjudicaci_",
   upside: "Upside",
   // Número de trazabilidad del deal (AAAAMM-###), asignado una sola vez al crearlo — columna nueva
   // creada sin acentos/espacios en el nombre a propósito, para que el InternalName sea igual (24 ago 2026).
@@ -1309,12 +1318,6 @@ const CAMPO_SP = {
   // en tarjetas/filtros/CSV; este campo es la identidad que usan el candado de mover etapa y,
   // a futuro, el flujo de permisos de carpeta de Patricio.
   vendedorEmail: "VendedorEmail",
-  // Fecha de cierre real (1 sep 2026): se completa SOLA la primera vez que el deal pasa a Won
-  // (ver moverDeal() y el submit del modal) — nunca hay un input para cargarla a mano. Distinta de
-  // "Fecha de adjudicación" (fechaAdjudicacion, arriba), que la escribe Flujo B leyendo el CANS real;
-  // esta es la fecha en que el comercial lo pasó a Won acá en el CRM, y sirve de respaldo si Flujo B
-  // todavía no corrió o falla.
-  fechaCierreReal: "FechaCierreReal",
 };
 
 let msalInstance = null;
@@ -1439,7 +1442,7 @@ function dealDesdeItemGraph(item){
     cansCreado: !!f[CAMPO_SP.cansCreado],
     fechaCreacionCans: (f[CAMPO_SP.fechaCreacionCans] || "").slice(0, 10),
     fechaAdjudicacion: (f[CAMPO_SP.fechaAdjudicacion] || "").slice(0, 10),
-    fechaCierreReal: (f[CAMPO_SP.fechaCierreReal] || "").slice(0, 10),
+    fechaCreacion: (item.createdDateTime || "").slice(0, 10),
     upside: !!f[CAMPO_SP.upside],
     fechaCambioEtapa: f[CAMPO_SP.fechaCambioEtapa]
       ? f[CAMPO_SP.fechaCambioEtapa].slice(0, 10)
@@ -1486,10 +1489,11 @@ function camposGraphDesdeDeal(datos){
   if(datos.fechaCambioEtapa !== undefined && datos.fechaCambioEtapa){
     fields[CAMPO_SP.fechaCambioEtapa] = datos.fechaCambioEtapa + "T00:00:00Z";
   }
-  // Fecha de cierre real: solo se manda cuando moverDeal()/el submit del modal la acaban de completar
-  // (ver esos 2 lugares) — nunca se pisa desde acá con datos.fechaCierreReal porque el form no la trae.
-  if(datos.fechaCierreReal !== undefined && datos.fechaCierreReal){
-    fields[CAMPO_SP.fechaCierreReal] = datos.fechaCierreReal + "T00:00:00Z";
+  // Fecha de adjudicación: solo se manda cuando moverDeal()/el submit del modal la acaban de completar
+  // por primera vez (ver esos 2 lugares) — nunca se pisa desde acá con un datos.fechaAdjudicacion
+  // viejo porque el form no tiene ese campo, así que solo aparece definido en ese momento puntual.
+  if(datos.fechaAdjudicacion !== undefined && datos.fechaAdjudicacion){
+    fields[CAMPO_SP.fechaAdjudicacion] = datos.fechaAdjudicacion + "T00:00:00Z";
   }
   // CANScreado y Fecha de creación del CANS son de solo lectura para el CRM (los escribe Flujo A) —
   // deliberadamente no se incluyen acá para no pisar lo que ya haya escrito ese flujo.
@@ -1814,10 +1818,24 @@ function paisesUnicos(){
 function clientesFinalesUnicos(){
   return [...new Set(deals.map(d => d.clienteFinal).filter(Boolean))].sort();
 }
-// Año de la Fecha estimada de cierre — mismo campo que usa calcularQuarter(). Orden descendente:
-// interesa ver primero el año en curso y los próximos, no el historial viejo.
+// Fecha "base" para los filtros Año/Trimestre de la sidebar (1 sep 2026, a pedido de Patricio):
+// antes usaban siempre la Fecha estimada de cierre para TODOS los deals — eso hacía que un lead
+// activo con cierre estimado lejano (ej. cargado este año, estimado para 2027) desapareciera del
+// año en curso al filtrar, que no es lo que se busca. Ahora depende de la etapa:
+//   - Abiertos (ni Won ni Lost): fecha de creación del lead (metadata que ya guarda SharePoint solo,
+//     sin columna nueva) — responde "¿qué entró al pipeline este año?", no "¿qué se espera que cierre?".
+//   - Ganados: fecha de adjudicación (fecha real de cierre).
+//   - Perdidos: fecha de cambio de etapa (el momento real en que se marcó como perdido — no hay un
+//     campo de "fecha de pérdida" separado, y fechaCambioEtapa ya registra ese momento).
+// Con fallback a la Fecha estimada de cierre si el campo que corresponde está vacío (deals viejos).
+function fechaFiltroTemporal(d){
+  if(d.etapa === "won") return d.fechaAdjudicacion || d.fechaCambioEtapa || d.fecha || "";
+  if(d.etapa === "lost") return d.fechaCambioEtapa || d.fecha || "";
+  return d.fechaCreacion || d.fecha || "";
+}
+// Orden descendente: interesa ver primero el año en curso y los próximos, no el historial viejo.
 function aniosUnicos(){
-  return [...new Set(deals.filter(d => d.fecha).map(d => d.fecha.slice(0, 4)))].sort().reverse();
+  return [...new Set(deals.map(fechaFiltroTemporal).filter(Boolean).map(f => f.slice(0, 4)))].sort().reverse();
 }
 
 // Comerciales_Preventas es la única fuente de opciones acá: si alguien nuevo se suma al equipo,
@@ -1885,8 +1903,11 @@ function pasaFiltros(d, filtros){
   if(filtros.vendedor && d.vendedor !== filtros.vendedor) return false;
   if(filtros.cliente && d.cliente !== filtros.cliente) return false;
   if(filtros.pais && d.pais !== filtros.pais) return false;
-  if(filtros.anio && (!d.fecha || d.fecha.slice(0, 4) !== filtros.anio)) return false;
-  if(filtros.trimestre && trimestreDeFecha(d.fecha) !== filtros.trimestre) return false;
+  // Año/Trimestre: la fecha "base" depende de la etapa del deal (ver fechaFiltroTemporal) — abiertos
+  // por fecha de creación, Ganados/Perdidos por su fecha real de cierre.
+  const fechaBase = fechaFiltroTemporal(d);
+  if(filtros.anio && (!fechaBase || fechaBase.slice(0, 4) !== filtros.anio)) return false;
+  if(filtros.trimestre && trimestreDeFecha(fechaBase) !== filtros.trimestre) return false;
   if(filtros.busqueda){
     const q = filtros.busqueda.toLowerCase();
     if(!d.titulo.toLowerCase().includes(q) && !d.cliente.toLowerCase().includes(q)) return false;
@@ -2436,7 +2457,10 @@ function renderTablero(){
         return;
       }
 
-      if(ETAPAS_CIERRE.includes(etapaDestino)){
+      if(etapaDestino === "won" && !ETAPAS_ORIGEN_WON.includes(deal.etapa)){
+        const nombresOrigen = ETAPAS_ORIGEN_WON.map(id => ETAPAS.find(e => e.id === id).nombre).join(" o ");
+        abrirBloqueo(`No se puede mover "${deal.titulo}" directo a Won desde su etapa actual. Solo se puede ganar un deal desde ${nombresOrigen}.`);
+      } else if(ETAPAS_CIERRE.includes(etapaDestino)){
         abrirConfirmacionCierre(deal, etapaDestino);
       } else if(!deal.fecha){
         abrirBloqueo(`No se puede mover "${deal.titulo}" de etapa sin definir antes la Fecha estimada de cierre. Abrí la tarjeta y completá ese campo primero.`);
@@ -2521,23 +2545,25 @@ function moverDeal(deal, etapaDestino, opciones = {}){
   const mostrarToast = opciones.mostrarToast !== false;
   const etapaAnterior = deal.etapa;
   const fechaAnterior = deal.fechaCambioEtapa;
-  const fechaCierreRealAnterior = deal.fechaCierreReal;
+  const fechaAdjudicacionAnterior = deal.fechaAdjudicacion;
 
   deal.etapa = etapaDestino;
   deal.fechaCambioEtapa = hoyISO();
-  // Fecha de cierre real (1 sep 2026, a pedido de Patricio): se completa sola, una sola vez, la
-  // primera vez que el deal pasa a Won — nunca se puede cargar a mano (no hay input para esto en
-  // el form). Si ya la tenía (ej. se movió a otra etapa y volvió a Won), no se pisa.
-  if(etapaDestino === "won" && !deal.fechaCierreReal) deal.fechaCierreReal = hoyISO();
+  // Fecha de adjudicación (consolidado 1 sep 2026 — antes existía un campo aparte "fecha de cierre
+  // real", revertido el mismo día): se completa sola, una sola vez, la primera vez que el deal pasa
+  // a Won — nunca se puede cargar a mano (no hay input para esto en el form). Si ya la tenía (ej. la
+  // cargó antes Flujo B, o el deal se movió a otra etapa y volvió a Won), no se pisa acá; Flujo B
+  // puede seguir corrigiéndola después con el dato real del CANS cuando corra.
+  if(etapaDestino === "won" && !deal.fechaAdjudicacion) deal.fechaAdjudicacion = hoyISO();
   renderTablero();
 
   if(modoConectado){
     const cambios = { etapa: etapaDestino, fechaCambioEtapa: deal.fechaCambioEtapa };
-    if(deal.fechaCierreReal !== fechaCierreRealAnterior) cambios.fechaCierreReal = deal.fechaCierreReal;
+    if(deal.fechaAdjudicacion !== fechaAdjudicacionAnterior) cambios.fechaAdjudicacion = deal.fechaAdjudicacion;
     actualizarDealEnGraph(deal.id, cambios).catch(e => {
       deal.etapa = etapaAnterior;
       deal.fechaCambioEtapa = fechaAnterior;
-      deal.fechaCierreReal = fechaCierreRealAnterior;
+      deal.fechaAdjudicacion = fechaAdjudicacionAnterior;
       renderTablero();
       mostrarErrorGraph("mover etapa", e);
     });
@@ -2805,11 +2831,7 @@ function abrirModal(id){
     document.getElementById("wrapFechaAdjudicacion").style.display = "block";
     document.getElementById("indicadorFechaAdjudicacion").textContent = d.fechaAdjudicacion
       ? fmtFecha(d.fechaAdjudicacion) + (d.fecha ? ` — estimado vs. real: ${diferenciaDiasFechas(d.fecha, d.fechaAdjudicacion)}` : "")
-      : "Todavía no se ganó (la completa Flujo B automáticamente).";
-    document.getElementById("wrapFechaCierreReal").style.display = "block";
-    document.getElementById("indicadorFechaCierreReal").textContent = d.fechaCierreReal
-      ? fmtFecha(d.fechaCierreReal)
-      : "Todavía no se ganó (se completa sola al mover el deal a Won).";
+      : "Todavía no se ganó (se completa sola al pasar a Won).";
     btnEliminar.style.display = esAdmin() ? "inline-block" : "none";
   } else {
     etapaOriginal = null;
@@ -2824,7 +2846,6 @@ function abrirModal(id){
     document.getElementById("f_upside").checked = false;
     document.getElementById("wrapCansCreado").style.display = "none";
     document.getElementById("wrapFechaAdjudicacion").style.display = "none";
-    document.getElementById("wrapFechaCierreReal").style.display = "none";
     vendorsSeleccionados = [];
     contactosProveedorPorVendor = {};
     renderChipsVendors();
@@ -3018,6 +3039,11 @@ document.getElementById("form").addEventListener("submit", async e => {
     return;
   }
   // Mismos gates que en el tablero, por si la etapa se cambia acá en vez de con drag&drop.
+  if(editandoId && datos.etapa === "won" && !ETAPAS_ORIGEN_WON.includes(etapaOriginal)){
+    const nombresOrigen = ETAPAS_ORIGEN_WON.map(id => ETAPAS.find(e => e.id === id).nombre).join(" o ");
+    abrirBloqueo(`No se puede pasar "${datos.titulo || "esta oportunidad"}" directo a Won desde su etapa actual. Solo se puede ganar un deal desde ${nombresOrigen}.`);
+    return;
+  }
   if(!ETAPAS_CIERRE.includes(datos.etapa) && !datos.fecha){
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" sin definir la Fecha estimada de cierre.`);
     return;
@@ -3064,13 +3090,13 @@ document.getElementById("form").addEventListener("submit", async e => {
       const cambioEtapa = datos.etapa !== etapaOriginal;
       Object.assign(d, datos);
       if(cambioEtapa) d.fechaCambioEtapa = hoyISO();
-      // Fecha de cierre real (1 sep 2026): mismo criterio que en moverDeal() — se completa sola,
-      // una sola vez, si el guardado desde el modal es lo que hace pasar el deal a Won.
-      const seCompletoCierreReal = cambioEtapa && datos.etapa === "won" && !d.fechaCierreReal;
-      if(seCompletoCierreReal) d.fechaCierreReal = hoyISO();
+      // Fecha de adjudicación (consolidado 1 sep 2026): mismo criterio que en moverDeal() — se
+      // completa sola, una sola vez, si el guardado desde el modal es lo que hace pasar el deal a Won.
+      const seCompletoAdjudicacion = cambioEtapa && datos.etapa === "won" && !d.fechaAdjudicacion;
+      if(seCompletoAdjudicacion) d.fechaAdjudicacion = hoyISO();
       if(modoConectado){
         const cambiosExtra = cambioEtapa ? { fechaCambioEtapa: d.fechaCambioEtapa } : {};
-        if(seCompletoCierreReal) cambiosExtra.fechaCierreReal = d.fechaCierreReal;
+        if(seCompletoAdjudicacion) cambiosExtra.fechaAdjudicacion = d.fechaAdjudicacion;
         await actualizarDealEnGraph(d.id, { ...datos, ...cambiosExtra });
       }
     } else {
@@ -3145,7 +3171,6 @@ function exportarCSV(){
     ["CANS creado", d => d.cansCreado ? "Sí" : "No"],
     ["Fecha de adjudicación", d => d.fechaAdjudicacion ? fmtFecha(d.fechaAdjudicacion) : ""],
     ["Diferencia estimado vs. real", d => diferenciaDiasFechas(d.fecha, d.fechaAdjudicacion)],
-    ["Fecha de cierre (CRM)", d => d.fechaCierreReal ? fmtFecha(d.fechaCierreReal) : ""],
   ];
   const encabezado = columnas.map(c => escaparCsv(c[0])).join(",");
   const filasCsv = filas.map(d => columnas.map(c => escaparCsv(c[1](d))).join(","));
