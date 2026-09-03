@@ -915,6 +915,10 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           <input type="text" id="f_quarter" readonly disabled placeholder="Se calcula solo">
         </div>
       </div>
+      <div class="campo" id="wrapFechaAdjudicacion" style="display:none;">
+        <label>Fecha de cierre <span style="font-weight:400;">(fecha real — se completa sola apenas el deal pasa a Won, y se corrige con el dato real del CANS cuando corre Flujo B)</span></label>
+        <div id="indicadorFechaAdjudicacion" style="font-size:12.5px; color:var(--texto-suave);"></div>
+      </div>
       <div class="campo" id="wrapMotivoPerdida" style="display:none;">
         <label>Motivo de pérdida</label>
         <select id="f_motivoPerdida"></select>
@@ -983,10 +987,6 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
       <div class="campo" id="wrapCansCreado" style="display:none;">
         <label>Estado del CANS</label>
         <div id="indicadorCansCreado" style="font-size:12.5px; color:var(--texto-suave);"></div>
-      </div>
-      <div class="campo" id="wrapFechaAdjudicacion" style="display:none;">
-        <label>Fecha de adjudicación <span style="font-weight:400;">(fecha real de cierre — se completa sola apenas el deal pasa a Won, y Flujo B la corrige después con el dato real del CANS)</span></label>
-        <div id="indicadorFechaAdjudicacion" style="font-size:12.5px; color:var(--texto-suave);"></div>
       </div>
       <div class="modal-acciones">
         <button type="button" class="btn-eliminar" id="btnEliminar" style="display:none;">Eliminar</button>
@@ -2845,7 +2845,13 @@ function abrirModal(id){
     document.getElementById("f_etapa").title = "";
     document.getElementById("f_upside").checked = false;
     document.getElementById("wrapCansCreado").style.display = "none";
-    document.getElementById("wrapFechaAdjudicacion").style.display = "none";
+    // Fecha de cierre (1 sep 2026, ajuste tras confusión real de Patricio): a diferencia de "Estado
+    // del CANS" (que sí se oculta en un deal nuevo), este campo queda SIEMPRE visible, incluso en
+    // "+ Nueva oportunidad" — antes se ocultaba hasta que el deal ya existiera, y eso hacía parecer
+    // que el campo directamente no existía. Ahora se ve desde el vamos, con un texto explicando que
+    // se completa sola más adelante.
+    document.getElementById("wrapFechaAdjudicacion").style.display = "block";
+    document.getElementById("indicadorFechaAdjudicacion").textContent = "Se completa sola cuando el deal pase a Won (todavía no existe este deal).";
     vendorsSeleccionados = [];
     contactosProveedorPorVendor = {};
     renderChipsVendors();
@@ -3169,7 +3175,7 @@ function exportarCSV(){
       .join("; ")],
     ["Motivo de pérdida", d => d.motivoPerdida || ""],
     ["CANS creado", d => d.cansCreado ? "Sí" : "No"],
-    ["Fecha de adjudicación", d => d.fechaAdjudicacion ? fmtFecha(d.fechaAdjudicacion) : ""],
+    ["Fecha de cierre", d => d.fechaAdjudicacion ? fmtFecha(d.fechaAdjudicacion) : ""],
     ["Diferencia estimado vs. real", d => diferenciaDiasFechas(d.fecha, d.fechaAdjudicacion)],
   ];
   const encabezado = columnas.map(c => escaparCsv(c[0])).join(",");
