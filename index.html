@@ -103,7 +103,8 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
   .app-layout{
     display:flex;
     align-items:flex-start;
-    min-height:100vh;
+    height:100vh;
+    overflow:hidden;
   }
   .sidebar{
     width:230px;
@@ -113,7 +114,8 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     display:flex;
     flex-direction:column;
     gap:10px;
-    min-height:100vh;
+    height:100vh;
+    overflow-y:auto;
   }
   .sidebar-titulo{
     font-size:11px;
@@ -162,6 +164,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
        pestaña con el modal abierto — ver pausarModalOportunidad(). */
     position:relative;
     z-index:60;
+    flex-shrink:0;
   }
   /* Píldora flotante que aparece cuando hay una oportunidad a medio cargar y se cambió de pestaña
      para ir a buscar/agregar algo (cliente, proveedor, contacto) sin perderla. */
@@ -214,6 +217,10 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
   .contenido{
     flex:1;
     min-width:0;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
   }
   header{
     background:var(--azul-sunset);
@@ -224,6 +231,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     justify-content:space-between;
     flex-wrap:wrap;
     gap:10px;
+    flex-shrink:0;
   }
   header h1{
     font-size:18px;
@@ -290,10 +298,14 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     font-size:11.5px;
     color:var(--texto-suave);
     margin:0 18px 4px;
+    flex-shrink:0;
   }
   main{
     padding:18px;
     overflow-x:auto;
+    overflow-y:auto;
+    flex:1;
+    min-height:0;
   }
   .tablero{
     display:flex;
