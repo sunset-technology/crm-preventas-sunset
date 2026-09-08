@@ -734,6 +734,16 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     border-radius:10px;
     font-weight:600;
   }
+  .badge-presales{
+    display:inline-block;
+    margin-top:7px;
+    margin-left:6px;
+    font-size:10.5px;
+    background:var(--badge-bg);
+    color:var(--azul-sunset);
+    padding:2px 7px;
+    border-radius:10px;
+  }
 
   /* Toast de deshacer */
   .toast{
@@ -888,6 +898,12 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
           <label>Etapa</label>
           <select id="f_etapa"></select>
         </div>
+      </div>
+      <div class="campo">
+        <label>Presales asignado <span style="font-weight:400;">(obligatorio a partir de "Qualified")</span></label>
+        <select id="f_presales">
+          <option value="">— Sin asignar —</option>
+        </select>
       </div>
       <div class="fila2">
         <div class="campo">
@@ -1217,6 +1233,11 @@ const GATE_CANS = ["proposal", "forecast", "forecastcommit"];
 // no se puede saltar de una etapa temprana (ej. Lead/Qualified) directo a Won. Lost no tiene esta
 // restricción: se puede perder un deal desde cualquier etapa.
 const ETAPAS_ORIGEN_WON = ["forecast", "forecastcommit"];
+// Presales asignado obligatorio (8 sep 2026, a pedido de Patricio): al llegar a Qualified significa
+// que hay que empezar a cotizar, así que ya tiene que estar elegido el presales — mismo mecanismo de
+// bloqueo duro que GATE_CANS (no se puede ENTRAR a esa etapa sin el dato). No aplica a Won/Lost, igual
+// que CANS, por diseño (esas 2 etapas siguen alcanzables desde cualquier lado sin restricción extra).
+const GATE_PRESALES = ["qualified", "proposal", "forecast", "forecastcommit"];
 
 // ==========================================================================
 // ---- Conexión a Microsoft Graph (MSAL.js) ----
@@ -1253,6 +1274,12 @@ const LIST_ID_CLIENTES_EMPRESAS = "7a499509-5ae6-4dfc-9084-00b8022cedef"; // lis
 // "solo el dueño del deal puede moverlo de etapa" (ver puedeMoverEtapa), y (3) el flujo de Power
 // Automate que Patricio está armando para dar permisos de carpeta según el dueño del proceso.
 const LIST_ID_COMERCIALES = "ec0b137a-292b-4a61-ae2e-c5f672c2f385";
+// Presales_Preventas (8 sep 2026): roster separado, solo presales (antes mezclado con comerciales
+// en la misma lista). Fuente única del combo "Presales asignado" del deal — mismo patrón que
+// Comerciales_Preventas para Vendedor. Sembrada con Patricio Camussi (único presales hoy). Patricio
+// se sacó de Comerciales_Preventas de paso (ya no aparece como opción de Vendedor), pero sigue siendo
+// admin siempre vía el email hardcodeado (ver ADMIN_EMAIL/esAdmin), no depende de ninguna lista.
+const LIST_ID_PRESALES = "ca9538fc-1470-41cb-8279-c340f860f6da";
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 // Valores EXACTOS del choice "Etapa" en SharePoint (confirmados vía REST, 13 ago 2026).
@@ -1330,6 +1357,14 @@ const CAMPO_SP = {
   // en tarjetas/filtros/CSV; este campo es la identidad que usan el candado de mover etapa y,
   // a futuro, el flujo de permisos de carpeta de Patricio.
   vendedorEmail: "VendedorEmail",
+  // Presales asignado (8 sep 2026): mismo patrón que Vendedor/VendedorEmail — combo cerrado con el
+  // roster de Presales_Preventas, guarda nombre (para mostrar) y email (identidad real). Dispara el
+  // flujo de Patricio que le da permisos de escritura sobre la carpeta del proceso al presales elegido.
+  // Nota: la columna de texto simple para el nombre se llama "PresalesAsignadoNombre" en SharePoint,
+  // no "PresalesAsignado" — ese nombre quedó pisado por una columna tipo Persona que se creó sin
+  // querer en el mismo momento y se borró (ver memoria del proyecto, 8 sep 2026).
+  presalesAsignado: "PresalesAsignadoNombre",
+  presalesAsignadoEmail: "PresalesAsignadoEmail",
 };
 
 let msalInstance = null;
@@ -1434,6 +1469,8 @@ function dealDesdeItemGraph(item){
     pais: f[CAMPO_SP.pais] || "",
     vendedor: f[CAMPO_SP.vendedor] || "",
     vendedorEmail: f[CAMPO_SP.vendedorEmail] || "",
+    presalesAsignado: f[CAMPO_SP.presalesAsignado] || "",
+    presalesAsignadoEmail: f[CAMPO_SP.presalesAsignadoEmail] || "",
     etapa: ETAPA_DESDE_SP[f.Etapa] || "universe",
     sucursal: f[CAMPO_SP.sucursal] || "",
     valor: Number(f[CAMPO_SP.valor]) || 0,
@@ -1472,6 +1509,8 @@ function camposGraphDesdeDeal(datos){
   if(datos.pais !== undefined) fields[CAMPO_SP.pais] = datos.pais;
   if(datos.vendedor !== undefined) fields[CAMPO_SP.vendedor] = datos.vendedor;
   if(datos.vendedorEmail !== undefined) fields[CAMPO_SP.vendedorEmail] = datos.vendedorEmail || "";
+  if(datos.presalesAsignado !== undefined) fields[CAMPO_SP.presalesAsignado] = datos.presalesAsignado || "";
+  if(datos.presalesAsignadoEmail !== undefined) fields[CAMPO_SP.presalesAsignadoEmail] = datos.presalesAsignadoEmail || "";
   if(datos.etapa !== undefined) fields.Etapa = ETAPA_SP_VALUE[datos.etapa] || datos.etapa;
   if(datos.sucursal !== undefined && datos.sucursal) fields[CAMPO_SP.sucursal] = datos.sucursal;
   if(datos.valor !== undefined) fields[CAMPO_SP.valor] = Number(datos.valor) || 0;
@@ -1529,20 +1568,26 @@ let proveedoresEmpresas = [];  // [{nombre, web, productos, descripcion}] — fu
 let contactosClientes = [];    // [{empresa, nombre, cargo, email, telefono}] — TipoEmpresa=Cliente
 let contactosProveedor = [];   // [{empresa, nombre, cargo, email, telefono}] — TipoEmpresa=Proveedor
 let comerciales = [];          // [{nombre, email, esAdmin}] — lista Comerciales_Preventas
+let presales = [];             // [{nombre, email}] — lista Presales_Preventas
 
 async function cargarBasesMaestras(){
   try {
-    const [dc, dp, dct, dcom] = await Promise.all([
+    const [dc, dp, dct, dcom, dpre] = await Promise.all([
       graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items?expand=fields&$top=1000`),
       graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items?expand=fields&$top=1000`),
       graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items?expand=fields&$top=1000`),
       graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_COMERCIALES}/items?expand=fields&$top=1000`),
+      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_PRESALES}/items?expand=fields&$top=1000`),
     ]);
     comerciales = (dcom.value || []).map(it => ({
       nombre: it.fields.Title || "",
       email: (it.fields.Email || "").toLowerCase(),
       esAdmin: !!it.fields.EsAdmin,
     })).filter(c => c.nombre && c.email);
+    presales = (dpre.value || []).map(it => ({
+      nombre: it.fields.Title || "",
+      email: (it.fields.Email || "").toLowerCase(),
+    })).filter(p => p.nombre && p.email);
     clientesEmpresas = (dc.value || []).map(it => ({ id: it.id, empresa: it.fields.Empresa || "", notas: it.fields.Notas || "" }));
     proveedoresEmpresas = (dp.value || []).map(it => ({
       id: it.id,
@@ -1863,6 +1908,17 @@ function poblarSelectVendedor(){
     opciones.map(c => `<option value="${escapeHtml(c.email)}">${escapeHtml(c.nombre)}</option>`).join("");
   if(opciones.some(c => c.email === actual)) sel.value = actual;
 }
+// Presales_Preventas es la única fuente acá, mismo criterio que poblarSelectVendedor — alta de un
+// presales nuevo = agregar una fila en esa lista de SharePoint, "🔄 Actualizar listas" lo trae solo.
+function poblarSelectPresales(){
+  const sel = document.getElementById("f_presales");
+  if(!sel) return;
+  const actual = sel.value;
+  const opciones = [...presales].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  sel.innerHTML = sel.querySelector("option").outerHTML +
+    opciones.map(p => `<option value="${escapeHtml(p.email)}">${escapeHtml(p.nombre)}</option>`).join("");
+  if(opciones.some(p => p.email === actual)) sel.value = actual;
+}
 
 function poblarSelects(){
   const poblar = (id, valores, etiquetaTodos) => {
@@ -1894,6 +1950,8 @@ function poblarSelects(){
   // Vendedor (1 sep 2026): dejó de ser texto libre — combo cerrado con el roster de Comerciales_Preventas,
   // guarda el email real como value (ver CAMPO_SP.vendedorEmail) y el nombre como texto visible.
   poblarSelectVendedor();
+  // Presales asignado (8 sep 2026): mismo patrón, combo cerrado con el roster de Presales_Preventas.
+  poblarSelectPresales();
 
   poblarSelectEtapa(false); // población inicial: completa (abrirModal la vuelve a poblar según alta/edición)
 
@@ -2476,6 +2534,9 @@ function renderTablero(){
         abrirConfirmacionCierre(deal, etapaDestino);
       } else if(!deal.fecha){
         abrirBloqueo(`No se puede mover "${deal.titulo}" de etapa sin definir antes la Fecha estimada de cierre. Abrí la tarjeta y completá ese campo primero.`);
+      } else if(GATE_PRESALES.includes(etapaDestino) && !deal.presalesAsignadoEmail){
+        const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
+        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: el presales asignado es obligatorio a partir de Qualified. Abrí la tarjeta y elegí un presales primero.`);
       } else if(GATE_CANS.includes(etapaDestino) && !deal.linkCans){
         const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
         abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: el CANS es obligatorio a partir de Proposal. Abrí la tarjeta y completá el link al CANS primero.`);
@@ -2519,7 +2580,7 @@ function crearTarjeta(d){
     ${d.fechaProximaAccion ? `<div class="fila"><span>Próx. acción</span><span class="${vencida ? "vencida" : ""}">${fmtFecha(d.fechaProximaAccion)}</span></div>` : ""}
     <div class="fila"><span>En esta etapa</span><span class="dias-etapa">${textoDiasEtapa(d.fechaCambioEtapa)}</span></div>
     ${d.notas ? `<div class="notas">${escapeHtml(d.notas)}</div>` : ""}
-    <span class="badge-vendedor">${escapeHtml(d.vendedor)}</span>${d.sucursal ? `<span class="badge-sucursal">${escapeHtml(d.sucursal)}</span>` : ""}${d.cansCreado ? `<span class="badge-cans-creado">✓ CANS</span>` : ""}
+    <span class="badge-vendedor">${escapeHtml(d.vendedor)}</span>${d.presalesAsignado ? `<span class="badge-presales">👤 ${escapeHtml(d.presalesAsignado)}</span>` : ""}${d.sucursal ? `<span class="badge-sucursal">${escapeHtml(d.sucursal)}</span>` : ""}${d.cansCreado ? `<span class="badge-cans-creado">✓ CANS</span>` : ""}
   `;
 
   const documentos = [
@@ -2806,6 +2867,8 @@ function abrirModal(id){
     // por nombre contra el roster actual como respaldo, para que el combo no quede vacío sin motivo.
     document.getElementById("f_vendedor").value = d.vendedorEmail ||
       (comerciales.find(c => c.nombre.toLowerCase() === (d.vendedor || "").toLowerCase())?.email) || "";
+    document.getElementById("f_presales").value = d.presalesAsignadoEmail ||
+      (presales.find(p => p.nombre.toLowerCase() === (d.presalesAsignado || "").toLowerCase())?.email) || "";
     poblarSelectEtapa(false); // editando: se muestran todas las etapas, incluso Forecast/Won/Lost
     document.getElementById("f_etapa").value = d.etapa;
     // Candado de mover etapa (1 sep 2026): si no sos el dueño ni admin, el combo Etapa queda solo
@@ -3026,6 +3089,12 @@ document.getElementById("form").addEventListener("submit", async e => {
     clienteFinal: document.getElementById("f_clienteFinal").value.trim(),
     vendedor: document.getElementById("f_vendedor").selectedOptions[0]?.textContent.trim() || "",
     vendedorEmail: document.getElementById("f_vendedor").value,
+    // Placeholder "— Sin asignar —" tiene value="" — solo se toma el texto visible cuando hay
+    // un presales real elegido, si no presalesAsignado quedaría con el texto del placeholder.
+    presalesAsignado: document.getElementById("f_presales").value
+      ? (document.getElementById("f_presales").selectedOptions[0]?.textContent.trim() || "")
+      : "",
+    presalesAsignadoEmail: document.getElementById("f_presales").value,
     etapa: document.getElementById("f_etapa").value,
     sucursal: document.getElementById("f_sucursal").value,
     probabilidad: PROBABILIDAD_POR_ETAPA[document.getElementById("f_etapa").value] ?? 0,
@@ -3064,6 +3133,11 @@ document.getElementById("form").addEventListener("submit", async e => {
   }
   if(!ETAPAS_CIERRE.includes(datos.etapa) && !datos.fecha){
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" sin definir la Fecha estimada de cierre.`);
+    return;
+  }
+  if(GATE_PRESALES.includes(datos.etapa) && !datos.presalesAsignadoEmail){
+    const nombreEtapa = ETAPAS.find(x => x.id === datos.etapa).nombre;
+    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta asignar el presales.`);
     return;
   }
   if(GATE_CANS.includes(datos.etapa) && !datos.linkCans){
@@ -3170,6 +3244,7 @@ function exportarCSV(){
     ["Cliente final", d => d.clienteFinal || ""],
     ["País", d => d.pais],
     ["Vendedor", d => d.vendedor],
+    ["Presales asignado", d => d.presalesAsignado || ""],
     ["Etapa", d => { const e = ETAPAS.find(x => x.id === d.etapa); return e ? e.nombre : d.etapa; }],
     ["Sucursal", d => d.sucursal || ""],
     ["Valor estimado (USD)", d => d.valor || 0],
