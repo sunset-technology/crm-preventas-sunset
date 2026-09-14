@@ -662,6 +662,37 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     border-top:1px solid var(--borde);
     padding-top:10px;
   }
+  /* Lista de contactos asociados, dentro del modal de Cliente/Proveedor (14 sep 2026) */
+  .lista-contactos-asociados{
+    margin-top:10px;
+    border:1px solid var(--borde);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .fila-contacto-asociado{
+    padding:8px 10px;
+    border-bottom:1px solid var(--borde);
+    cursor:pointer;
+  }
+  .fila-contacto-asociado:last-of-type{border-bottom:none;}
+  .fila-contacto-asociado:hover{background:#f5f9fa;}
+  .fila-contacto-asociado .nombre{font-size:13px; font-weight:600; color:var(--texto);}
+  .fila-contacto-asociado .nombre .cargo{font-weight:400; color:var(--texto-suave);}
+  .fila-contacto-asociado .detalle{font-size:11.5px; color:var(--texto-suave); margin-top:2px;}
+  .lista-contactos-asociados .vacio{padding:10px;}
+  .btn-agregar-contacto-empresa{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:transparent;
+    border:none;
+    padding:8px 10px;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--azul-sunset);
+    cursor:pointer;
+  }
+  .btn-agregar-contacto-empresa:hover{background:#f5f9fa;}
   .modal-confirm{width:380px;}
   .modal-confirm p{
     font-size:13.5px;
@@ -1105,6 +1136,10 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
       <div class="campo"><label>Empresa</label><input type="text" id="c_empresa" required></div>
       <div class="campo"><label>Notas</label><textarea id="c_notas" rows="3"></textarea></div>
       <div class="nota-graph">El país y los datos de contacto se cargan por separado en la pestaña Contactos — una empresa puede tener contactos en más de un país.</div>
+      <div class="campo">
+        <button type="button" class="btn-secundario" id="btnVerContactosCliente" style="display:none;">📇 Contactos</button>
+        <div id="listaContactosCliente" class="lista-contactos-asociados" style="display:none;"></div>
+      </div>
       <div class="modal-acciones">
         <button type="button" class="btn-eliminar" id="btnEliminarCliente" style="display:none;">Eliminar</button>
         <div style="display:flex; gap:8px; margin-left:auto;">
@@ -1125,6 +1160,10 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
       <div class="campo"><label>Productos</label><input type="text" id="p_productos" placeholder="Ej: SBC, DRA, PCRF"></div>
       <div class="campo"><label>Descripción</label><textarea id="p_descripcion" rows="3"></textarea></div>
       <div class="nota-graph">Los datos de contacto se cargan por separado en la pestaña Contactos.</div>
+      <div class="campo">
+        <button type="button" class="btn-secundario" id="btnVerContactosProveedor" style="display:none;">📇 Contactos</button>
+        <div id="listaContactosProveedor" class="lista-contactos-asociados" style="display:none;"></div>
+      </div>
       <div class="modal-acciones">
         <button type="button" class="btn-eliminar" id="btnEliminarProveedor" style="display:none;">Eliminar</button>
         <div style="display:flex; gap:8px; margin-left:auto;">
@@ -2300,12 +2339,62 @@ function renderTablaContactosBD(){
   document.querySelectorAll("#tablaContactosBD tr[data-id]").forEach(tr => tr.addEventListener("click", () => abrirModalContactoBD(tr.dataset.id)));
 }
 
+// Muestra los contactos ya cargados para una empresa (Cliente o Proveedor), dentro del modal de esa
+// empresa (14 sep 2026, a pedido de Patricio). Cada fila abre el contacto para editar (reusa
+// abrirModalContactoBD, la misma que ya usa la pestaña Contactos) y hay un acceso directo abajo para
+// cargar un contacto nuevo ya pre-filtrado a esta empresa, sin tener que ir a la pestaña Contactos.
+function renderListaContactosEmpresa(tipo, nombreEmpresa, contenedorId){
+  const cont = document.getElementById(contenedorId);
+  const fuente = tipo === "Cliente" ? contactosClientes : contactosProveedor;
+  const lista = fuente
+    .filter(c => c.empresa.toLowerCase() === nombreEmpresa.toLowerCase())
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const filasHtml = lista.length
+    ? lista.map(c => `
+        <div class="fila-contacto-asociado" data-id="${c.id}">
+          <div class="nombre">${escapeHtml(c.nombre)}${c.cargo ? ` <span class="cargo">— ${escapeHtml(c.cargo)}</span>` : ""}</div>
+          <div class="detalle">${[c.email, c.telefono, c.pais].filter(Boolean).map(escapeHtml).join(" · ") || "Sin más datos cargados"}</div>
+        </div>
+      `).join("")
+    : `<div class="vacio">Todavía no hay contactos cargados para esta empresa.</div>`;
+  cont.innerHTML = filasHtml + `<button type="button" class="btn-agregar-contacto-empresa" id="btnAgregarContactoDesdeEmpresa">+ Agregar contacto para esta empresa</button>`;
+  cont.querySelectorAll(".fila-contacto-asociado[data-id]").forEach(el => {
+    el.addEventListener("click", () => abrirModalContactoBD(el.dataset.id));
+  });
+  document.getElementById("btnAgregarContactoDesdeEmpresa").addEventListener("click", () => {
+    abrirModalContactoBD(null);
+    document.getElementById("ct_tipo").value = tipo;
+    poblarEmpresasSegunTipoBD(tipo, nombreEmpresa);
+  });
+}
+// Toggle genérico: abre/cierra la lista y la recalcula cada vez que se abre (por si se agregó un
+// contacto nuevo desde que se abrió el modal de la empresa).
+function toggleListaContactosEmpresa(tipo, nombreEmpresa, contenedorId){
+  const cont = document.getElementById(contenedorId);
+  const visible = cont.style.display !== "none";
+  if(visible){ cont.style.display = "none"; return; }
+  renderListaContactosEmpresa(tipo, nombreEmpresa, contenedorId);
+  cont.style.display = "block";
+}
+document.getElementById("btnVerContactosCliente").addEventListener("click", () => {
+  toggleListaContactosEmpresa("Cliente", document.getElementById("c_empresa").value.trim(), "listaContactosCliente");
+});
+document.getElementById("btnVerContactosProveedor").addEventListener("click", () => {
+  toggleListaContactosEmpresa("Proveedor", document.getElementById("p_nombre").value.trim(), "listaContactosProveedor");
+});
+
 function abrirModalClienteBD(id){
   editandoClienteIdBD = id || null;
   const c = id ? clientesEmpresas.find(x => x.id === id) : null;
   document.getElementById("c_empresa").value = c ? c.empresa : "";
   document.getElementById("c_notas").value = c ? c.notas : "";
   document.getElementById("btnEliminarCliente").style.display = c ? "inline-block" : "none";
+  // Botón "Contactos" solo tiene sentido para una empresa ya guardada (con nombre para matchear) —
+  // la lista arranca siempre colapsada, se recalcula recién al hacer click (ver toggleListaContactosEmpresa).
+  const nContactosCliente = c ? contactosClientes.filter(x => x.empresa.toLowerCase() === c.empresa.toLowerCase()).length : 0;
+  document.getElementById("btnVerContactosCliente").textContent = `📇 Contactos (${nContactosCliente})`;
+  document.getElementById("btnVerContactosCliente").style.display = c ? "inline-block" : "none";
+  document.getElementById("listaContactosCliente").style.display = "none";
   document.getElementById("overlayCliente").classList.add("activo");
 }
 function abrirModalProveedorBD(id){
@@ -2316,6 +2405,10 @@ function abrirModalProveedorBD(id){
   document.getElementById("p_productos").value = p ? p.productos : "";
   document.getElementById("p_descripcion").value = p ? p.descripcion : "";
   document.getElementById("btnEliminarProveedor").style.display = p ? "inline-block" : "none";
+  const nContactosProveedor = p ? contactosProveedor.filter(x => x.empresa.toLowerCase() === p.nombre.toLowerCase()).length : 0;
+  document.getElementById("btnVerContactosProveedor").textContent = `📇 Contactos (${nContactosProveedor})`;
+  document.getElementById("btnVerContactosProveedor").style.display = p ? "inline-block" : "none";
+  document.getElementById("listaContactosProveedor").style.display = "none";
   document.getElementById("overlayProveedor").classList.add("activo");
 }
 // Desplegable de Empresa dentro del modal de Contacto: cerrado, se alimenta de Clientes o Proveedores
