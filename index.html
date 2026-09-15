@@ -1245,7 +1245,11 @@ const PROBABILIDAD_POR_ETAPA = {
 // campo. Cliente y Proveedores dejaron de tener lista base hardcodeada acá — desde el 21 ago 2026
 // salen exclusivamente de las listas SharePoint Clientes/Vendors_Info (ver cargarBasesMaestras()),
 // a pedido de Patricio, para que el desplegable del deal solo ofrezca lo que ya está en la base.
-const PAISES_BASE = ["Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Costa Rica", "Ecuador", "El Salvador", "España", "Guatemala", "Guyana", "Honduras", "México", "Nicaragua", "Panamá", "Paraguay", "Perú", "Rep. Dominicana", "Surinam", "Uruguay", "Venezuela"];
+// CENAM (agregado 15 sep 2026, a pedido de Patricio) no es un país — es la región "Centro América"
+// (Guatemala, Nicaragua, Honduras, El Salvador, Costa Rica) que se usa como valor de País cuando un
+// deal de CLARO o TECH MAHINDRA abarca la región completa en vez de un país puntual. Convive en la
+// misma lista/desplegable que los países individuales, sin tratamiento especial en filtros/CSV/Estadísticas.
+const PAISES_BASE = ["Argentina", "Bolivia", "Brasil", "CENAM", "Chile", "Colombia", "Costa Rica", "Ecuador", "El Salvador", "España", "Guatemala", "Guyana", "Honduras", "México", "Nicaragua", "Panamá", "Paraguay", "Perú", "Rep. Dominicana", "Surinam", "Uruguay", "Venezuela"];
 const VENDEDORES_BASE = ["Gustavo Guaspari", "Gustavo Molina"];
 
 const MOTIVO_PERDIDA_OPCIONES = ["Precio", "Timing", "Perdido vs competidor", "Proyecto cancelado por cliente", "Sin presupuesto", "No calificó", "Otro"];
