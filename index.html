@@ -100,6 +100,62 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     background:var(--fondo);
     color:var(--texto);
   }
+  /* Pantalla inicial de login (antes de conectar con SharePoint): mismo criterio que el ERP
+     Sunset — nada del CRM (ni siquiera vacío/"Cargando…") se muestra hasta iniciar sesión. */
+  .pantalla-login{
+    position:fixed;
+    inset:0;
+    z-index:200;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    background:var(--primario-oscuro);
+    color:#fff;
+    text-align:center;
+    padding:24px;
+  }
+  .pantalla-login .pl-marca{
+    font-size:34px;
+    font-weight:800;
+    letter-spacing:.03em;
+    line-height:1.1;
+  }
+  .pantalla-login .pl-marca-sub{
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:.28em;
+    color:var(--header-subt);
+    margin-top:2px;
+    margin-bottom:38px;
+  }
+  .pantalla-login h1{
+    font-size:22px;
+    margin:0 0 14px;
+  }
+  .pantalla-login p{
+    font-size:14px;
+    color:var(--header-subt);
+    margin:0 0 22px;
+    max-width:420px;
+  }
+  .pantalla-login button{
+    background:#fff;
+    color:var(--primario-oscuro);
+    border:none;
+    padding:13px 26px;
+    border-radius:8px;
+    font-size:14.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .pantalla-login button:disabled{opacity:.7; cursor:default;}
+  .pantalla-login .pl-error{
+    margin-top:18px;
+    font-size:12.5px;
+    color:#FFD3CB;
+    max-width:420px;
+  }
   .app-layout{
     display:flex;
     align-items:flex-start;
@@ -808,7 +864,16 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 </head>
 <body>
 
-<div class="app-layout">
+<div class="pantalla-login" id="pantallaLogin">
+  <div class="pl-marca">SUNSET</div>
+  <div class="pl-marca-sub">TECHNOLOGY</div>
+  <h1>CRM Preventas</h1>
+  <p>Iniciá sesión con tu cuenta de Sunset Technology para acceder.</p>
+  <button type="button" id="btnLoginInicial">Iniciar sesión con Microsoft</button>
+  <div class="pl-error" id="pantallaLoginError" style="display:none;"></div>
+</div>
+
+<div class="app-layout" style="display:none;">
   <aside class="sidebar">
     <div id="sidebarFiltrosDeals">
       <div class="sidebar-titulo">Buscar y filtrar</div>
@@ -1779,7 +1844,17 @@ function mostrarErrorGraph(contexto, error){
   alert(`No se pudo guardar en SharePoint (${contexto}). El cambio se deshizo acá; probá de nuevo.\n\nDetalle técnico: ${error.message || error}`);
 }
 
+function ocultarPantallaLogin(){
+  document.getElementById("pantallaLogin").style.display = "none";
+  document.querySelector(".app-layout").style.display = "flex";
+}
+function mostrarPantallaLogin(){
+  document.getElementById("pantallaLogin").style.display = "flex";
+  document.querySelector(".app-layout").style.display = "none";
+}
+
 function activarUIConectado(){
+  ocultarPantallaLogin();
   const boton = document.getElementById("btnConectar");
   const estado = document.getElementById("estadoConexion");
   boton.style.display = "none";
@@ -1822,6 +1897,23 @@ async function conectarASharePoint(){
 }
 
 document.getElementById("btnConectar").addEventListener("click", conectarASharePoint);
+
+document.getElementById("btnLoginInicial").addEventListener("click", async () => {
+  const boton = document.getElementById("btnLoginInicial");
+  const errorDiv = document.getElementById("pantallaLoginError");
+  errorDiv.style.display = "none";
+  boton.disabled = true;
+  boton.textContent = "Conectando…";
+  try {
+    await conectarASharePoint();
+  } catch (e) {
+    errorDiv.textContent = "No se pudo iniciar sesión. Detalle técnico: " + (e.message || e);
+    errorDiv.style.display = "block";
+  } finally {
+    boton.disabled = false;
+    boton.textContent = "Iniciar sesión con Microsoft";
+  }
+});
 
 // ---- Datos de prueba ----
 // Solo se cargan si la URL tiene "?demo=1" (uso interno para probar la interfaz sin conectar a
@@ -3461,9 +3553,11 @@ async function iniciarApp(){
     }
   }
   // Datos de ejemplo solo si se pide explícitamente con ?demo=1 en la URL (uso interno para
-  // probar la interfaz sin conectar a SharePoint). En el uso normal, sin conectar, arranca vacío.
+  // probar la interfaz sin conectar a SharePoint). En el uso normal, sin conectar, se queda en
+  // la pantalla de login (no se muestra el tablero vacío).
   if(!modoConectado && new URLSearchParams(window.location.search).get("demo") === "1"){
     deals = DEALS_DEMO;
+    ocultarPantallaLogin();
   }
   poblarSelects();
   renderTablero();
