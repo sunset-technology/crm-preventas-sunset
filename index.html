@@ -2063,7 +2063,6 @@ function poblarSelects(){
       valores.map(v => `<option value="${v}">${v}</option>`).join("");
     if(valores.includes(actual)) sel.value = actual;
   };
-  poblar("filtroVendedor", vendedoresUnicos(), "Todos los vendedores");
   poblar("filtroCliente", clientesUnicos(), "Todos los clientes");
   poblar("filtroPais", paisesUnicos(), "Todos los países");
   poblar("filtroAnio", aniosUnicos(), "Todos los años");
@@ -2081,6 +2080,13 @@ function poblarSelects(){
   poblarSelectCerrado("f_cliente", clientesEmpresas.map(c => c.empresa).filter(Boolean), clientesUnicos());
   poblarSelectCerrado("f_pais", PAISES_BASE, paisesUnicos());
   poblarSelectCerrado("f_clienteFinal", clientesEmpresas.map(c => c.empresa).filter(Boolean), clientesFinalesUnicos());
+
+  // Filtro "Vendedor" de la sidebar (20 oct 2026, a pedido de Patricio): antes se armaba solo con
+  // los vendedores que ya tenían algún deal cargado (vendedoresUnicos()), así que alguien recién
+  // agregado a Comerciales_Preventas no aparecía ahí hasta tener su primer deal. Ahora, igual que
+  // Cliente/País, es un combo cerrado con el roster completo de Comerciales_Preventas + cualquier
+  // nombre ya en uso en deals viejos (por si quedó alguien que salió del roster).
+  poblarSelectCerrado("filtroVendedor", comerciales.map(c => c.nombre).filter(Boolean), vendedoresUnicos());
 
   // Vendedor (1 sep 2026): dejó de ser texto libre — combo cerrado con el roster de Comerciales_Preventas,
   // guarda el email real como value (ver CAMPO_SP.vendedorEmail) y el nombre como texto visible.
