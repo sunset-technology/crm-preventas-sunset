@@ -1921,15 +1921,15 @@ document.getElementById("btnLoginInicial").addEventListener("click", async () =>
 // fechaCambioEtapa: fecha del último movimiento de etapa (campo interno, no se carga a mano —
 // lo actualiza la propia app cada vez que una tarjeta cambia de columna).
 const DEALS_DEMO = [
-  { id: "1", titulo: "Claro Guatemala - Renovación SBC", cliente: "CLARO", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "proposal", sucursal: "Argentina", valor: 185000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Cliente pidió incluir soporte 24x7 en la propuesta. Confirmar con Operaciones antes de cotizar.", contactoNombre: "Marco Solís", contactoCargo: "Gerente de Redes", contactoEmail: "marco.solis@claro.gt", contactoTelefono: "+502 5555 1234", vendors: ["NG-Voice", "Xius"], fechaPrimerContacto: "2026-07-15", fechaProximaAccion: "2026-09-01", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/CLARO/Guatemala/2026/Renovacion-SBC", cansCreado: true, fechaCreacionCans: "2026-08-10" },
-  { id: "2", titulo: "Telefónica Perú - Ampliación IMS", cliente: "TELEFONICA", pais: "Perú", vendedor: "Gustavo Molina", etapa: "forecastcommit", valor: 340000, accion: "Ajustar condiciones comerciales", fecha: "2026-08-15", fechaCambioEtapa: "2026-07-28", notas: "También están evaluando a un competidor. Prioridad alta, quieren cerrar antes de fin de mes.", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELEFONICA/Peru/2026/Ampliacion-IMS" },
-  { id: "3", titulo: "Tech Mahindra - Integratel DRA", cliente: "TECH MAHINDRA", pais: "Colombia", vendedor: "Gustavo Guaspari", etapa: "forecast", valor: 96000, accion: "Follow up propuesta", fecha: "2026-08-20", fechaCambioEtapa: "2026-08-05", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TECH%20MAHINDRA/Colombia/2026/Integratel-DRA" },
-  { id: "4", titulo: "Entel Chile - Nueva plataforma PCRF", cliente: "ENTEL", pais: "Chile", vendedor: "Gustavo Molina", etapa: "qualified", valor: 210000, accion: "Agendar relevamiento técnico", fecha: "2026-08-25", fechaCambioEtapa: "2026-08-11" },
-  { id: "5", titulo: "Datatronics - Movistar El Salvador SS7", cliente: "DATATRONICS", pais: "El Salvador", vendedor: "Gustavo Guaspari", etapa: "lead", valor: 60000, accion: "Primer contacto", fecha: "2026-08-14", fechaCambioEtapa: "2026-08-12" },
-  { id: "6", titulo: "Claro Argentina - Titan.ium SBC", cliente: "CLARO", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "qualified", valor: 275000, accion: "Definir arquitectura con vendors", fecha: "2026-08-22", fechaCambioEtapa: "2026-08-08" },
-  { id: "7", titulo: "Milicom Honduras - One2many notificaciones", cliente: "MILICOM", pais: "Honduras", vendedor: "Gustavo Guaspari", etapa: "lead", valor: 45000, accion: "Confirmar necesidad", fecha: "2026-08-19", fechaCambioEtapa: "2026-08-13" },
-  { id: "8", titulo: "Telecom Argentina - Comarch NMS", cliente: "TELECOM", pais: "Argentina", vendedor: "Gustavo Molina", etapa: "won", valor: 410000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-20", linkCans: "https://sunsettechnology567.sharepoint.com/sites/VENTAS/Procesos%20Ventas/CLIENTES/TELECOM/Argentina/2026/Comarch-NMS" },
-  { id: "9", titulo: "Integratel - XIUS billing", cliente: "INTEGRATEL", pais: "Guatemala", vendedor: "Gustavo Guaspari", etapa: "lost", valor: 78000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-25", motivoPerdida: "Precio" },
+  { id: "1", titulo: "Cliente Demo Alfa - Renovación plataforma", cliente: "CLIENTE DEMO ALFA", pais: "Guatemala", vendedor: "Vendedor Demo 1", etapa: "proposal", sucursal: "Argentina", valor: 150000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Nota de ejemplo: el cliente pidió incluir soporte 24x7.", contactoNombre: "Contacto Ficticio", contactoCargo: "Gerente de Redes", contactoEmail: "contacto@example.com", contactoTelefono: "+00 0000 0000", vendors: ["Vendor Demo A", "Vendor Demo B"], fechaPrimerContacto: "2026-07-15", fechaProximaAccion: "2026-09-01", linkCans: "https://example.com/cans-demo-1", cansCreado: true, fechaCreacionCans: "2026-08-10" },
+  { id: "2", titulo: "Cliente Demo Beta - Ampliación core", cliente: "CLIENTE DEMO BETA", pais: "Perú", vendedor: "Vendedor Demo 2", etapa: "forecastcommit", valor: 300000, accion: "Ajustar condiciones comerciales", fecha: "2026-08-15", fechaCambioEtapa: "2026-07-28", notas: "Nota de ejemplo: prioridad alta.", linkCans: "https://example.com/cans-demo-2" },
+  { id: "3", titulo: "Cliente Demo Gamma - Integración", cliente: "CLIENTE DEMO GAMMA", pais: "Colombia", vendedor: "Vendedor Demo 1", etapa: "forecast", valor: 90000, accion: "Follow up propuesta", fecha: "2026-08-20", fechaCambioEtapa: "2026-08-05", linkCans: "https://example.com/cans-demo-3" },
+  { id: "4", titulo: "Cliente Demo Delta - Nueva plataforma", cliente: "CLIENTE DEMO DELTA", pais: "Chile", vendedor: "Vendedor Demo 2", etapa: "qualified", valor: 200000, accion: "Agendar relevamiento técnico", fecha: "2026-08-25", fechaCambioEtapa: "2026-08-11" },
+  { id: "5", titulo: "Cliente Demo Épsilon - Señalización", cliente: "CLIENTE DEMO EPSILON", pais: "El Salvador", vendedor: "Vendedor Demo 1", etapa: "lead", valor: 60000, accion: "Primer contacto", fecha: "2026-08-14", fechaCambioEtapa: "2026-08-12" },
+  { id: "6", titulo: "Cliente Demo Alfa - Session controller", cliente: "CLIENTE DEMO ALFA", pais: "Argentina", vendedor: "Vendedor Demo 2", etapa: "qualified", valor: 250000, accion: "Definir arquitectura con vendors", fecha: "2026-08-22", fechaCambioEtapa: "2026-08-08" },
+  { id: "7", titulo: "Cliente Demo Zeta - Notificaciones", cliente: "CLIENTE DEMO ZETA", pais: "Honduras", vendedor: "Vendedor Demo 1", etapa: "lead", valor: 40000, accion: "Confirmar necesidad", fecha: "2026-08-19", fechaCambioEtapa: "2026-08-13" },
+  { id: "8", titulo: "Cliente Demo Eta - Gestión de red", cliente: "CLIENTE DEMO ETA", pais: "Argentina", vendedor: "Vendedor Demo 2", etapa: "won", valor: 400000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-20", linkCans: "https://example.com/cans-demo-8" },
+  { id: "9", titulo: "Cliente Demo Theta - Billing", cliente: "CLIENTE DEMO THETA", pais: "Guatemala", vendedor: "Vendedor Demo 1", etapa: "lost", valor: 75000, accion: "—", fecha: "", fechaCambioEtapa: "2026-07-25", motivoPerdida: "Precio" },
 ];
 
 let deals = [];
@@ -2749,9 +2749,10 @@ function renderTablero(){
 }
 
 function escapeHtml(texto){
-  const div = document.createElement("div");
-  div.textContent = texto || "";
-  return div.innerHTML;
+  // Escapa también comillas: se usa dentro de atributos (value="…", title="…"), donde un " sin escapar
+  // corta el atributo (ej. un cliente llamado Empresa "X" rompe el input, o permite inyectar atributos).
+  if(texto == null) return "";
+  return String(texto).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 function esUrlSegura(url){
   return /^https?:\/\//i.test((url || "").trim());
