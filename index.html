@@ -2060,7 +2060,7 @@ function poblarSelects(){
     const sel = document.getElementById(id);
     const actual = sel.value;
     sel.innerHTML = `<option value="">${etiquetaTodos}</option>` +
-      valores.map(v => `<option value="${v}">${v}</option>`).join("");
+      valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
     if(valores.includes(actual)) sel.value = actual;
   };
   poblar("filtroCliente", clientesUnicos(), "Todos los clientes");
@@ -2074,7 +2074,7 @@ function poblarSelects(){
     const sel = document.getElementById(id);
     const actual = sel.value;
     const valores = [...new Set([...base, ...enUso])].sort();
-    sel.innerHTML = sel.querySelector("option").outerHTML + valores.map(v => `<option value="${v}">${v}</option>`).join("");
+    sel.innerHTML = sel.querySelector("option").outerHTML + valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
     if(valores.includes(actual)) sel.value = actual;
   };
   poblarSelectCerrado("f_cliente", clientesEmpresas.map(c => c.empresa).filter(Boolean), clientesUnicos());
