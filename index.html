@@ -877,6 +877,9 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
   <aside class="sidebar">
     <div id="sidebarFiltrosDeals">
       <div class="sidebar-titulo">Buscar y filtrar</div>
+      <label id="wrapSoloMias" style="display:none; align-items:center; gap:6px; font-size:13px; margin-bottom:8px; cursor:pointer;">
+        <input type="checkbox" id="filtroSoloMias" style="width:auto; margin:0;"> Solo mis oportunidades
+      </label>
       <input type="text" id="buscador" placeholder="Buscar por título o cliente…">
       <select id="filtroCliente">
         <option value="">Todos los clientes</option>
@@ -1872,6 +1875,7 @@ function activarUIConectado(){
   estado.style.display = "inline";
   estado.textContent = `Conectado como ${cuentaActiva.name || cuentaActiva.username}`;
   document.getElementById("subtitulo").textContent = "Conectado a SharePoint · los cambios se guardan en Oportunidades_Preventas";
+  document.getElementById("wrapSoloMias").style.display = "flex";
 }
 
 async function conectarASharePoint(){
@@ -1891,6 +1895,7 @@ async function conectarASharePoint(){
     await cargarDealsDesdeGraph();
     cargarBasesMaestras().then(() => {
       poblarSelects(); actualizarContactoProveedorGuardadoUI();
+      aplicarVistaMiasPorDefecto();
       if(["clientes", "proveedores", "contactos"].includes(vistaActual)) cambiarVista(vistaActual);
     }); // best-effort, no bloquea el resto de la conexión
     modoConectado = true;
@@ -2123,6 +2128,7 @@ function poblarSelects(){
 }
 
 function pasaFiltros(d, filtros){
+  if(filtros.soloMias && emailDuenoDeal(d) !== emailUsuarioActual()) return false;
   if(filtros.vendedor && d.vendedor !== filtros.vendedor) return false;
   if(filtros.cliente && d.cliente !== filtros.cliente) return false;
   if(filtros.pais && d.pais !== filtros.pais) return false;
@@ -2142,6 +2148,7 @@ function pasaFiltros(d, filtros){
 // así los tres quedan siempre consistentes con lo que el usuario tiene tildado.
 function leerFiltros(){
   return {
+    soloMias: modoConectado && document.getElementById("filtroSoloMias").checked,
     busqueda: document.getElementById("buscador").value.trim(),
     cliente: document.getElementById("filtroCliente").value,
     pais: document.getElementById("filtroPais").value,
@@ -2280,6 +2287,8 @@ function renderEstadisticas(filtros){
       <div class="stats-card" style="cursor:pointer;" data-grupo="cierres"><div class="etiqueta">Tasa de conversión</div><div class="valor-grande">${tasaConversion === null ? "—" : tasaConversion + "%"}</div><div class="etiqueta">${cierres} cierre${cierres === 1 ? "" : "s"}</div></div>
     </div>
 
+    ${renderForecast(filtros)}
+
     <div class="stats-graficos">
       <div class="chart-card">
         <div class="stats-seccion-titulo">Oportunidades abiertas por etapa</div>
@@ -2305,6 +2314,80 @@ function renderEstadisticas(filtros){
     ${tablaHtml("Por vendedor", "Vendedor", porVendedor)}
     ${tablaHtml("Por cliente", "Cliente", porCliente)}
     ${tablaHtml("Por país", "País", porPais)}
+  `;
+}
+
+// ---- Posibles duplicados al dar de alta (21 oct 2026) ----
+// Otro deal abierto del mismo cliente y país cuyo título comparte al menos la mitad de las palabras
+// (sin tildes ni mayúsculas, sin el prefijo "Cliente - " del formato de título y sin palabras de 1-2 letras).
+function palabrasTitulo(titulo, cliente){
+  const norm = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  let t = norm(titulo);
+  const c = norm(cliente);
+  if(c && t.startsWith(c)) t = t.slice(c.length);
+  return new Set(t.split(/[^a-z0-9]+/).filter(p => p.length > 2));
+}
+function buscarPosiblesDuplicados(datos){
+  const nuevas = palabrasTitulo(datos.titulo, datos.cliente);
+  return deals
+    .filter(d => !ETAPAS_CIERRE.includes(d.etapa) && d.cliente === datos.cliente && d.pais === datos.pais)
+    .filter(d => {
+      const otras = palabrasTitulo(d.titulo, d.cliente);
+      if(nuevas.size === 0 || otras.size === 0) return true; // sin palabras útiles para comparar: mismo cliente y país alcanza para avisar
+      const comunes = [...nuevas].filter(p => otras.has(p)).length;
+      return comunes / Math.min(nuevas.size, otras.size) >= 0.5;
+    });
+}
+
+// ---- Forecast por quarter (21 oct 2026, a pedido de Patricio) ----
+// Agrupa por la Fecha estimada de cierre (abiertos) y por la fecha real de cierre (ganados), no por la
+// fecha de creación que usan los filtros Año/Trimestre de la sidebar — por eso ignora esos dos filtros
+// y respeta el resto. Muestra el quarter actual y los 3 siguientes, más filas aparte para abiertos con
+// cierre ya vencido, más adelante o sin fecha. Cada fila abre el drill-down como "Por etapa".
+function renderForecast(filtros){
+  const base = deals.filter(d => pasaFiltros(d, { ...(filtros || {}), anio: "", trimestre: "" }));
+  const indiceQ = fechaISO => {
+    const [anio, mes] = (fechaISO || "").split("-").map(Number);
+    return anio && mes ? anio * 4 + Math.ceil(mes / 3) - 1 : null;
+  };
+  const nombreQ = i => `Q${(i % 4) + 1} ${Math.floor(i / 4)}`;
+  const actual = indiceQ(new Date().toISOString().slice(0, 10));
+  const suma = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0), 0);
+  const ponderado = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0) * (PROBABILIDAD_POR_ETAPA[d.etapa] ?? 0) / 100, 0);
+  const abiertos = base.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
+
+  const fila = (clave, titulo, abiertosQ, ganadosQ) => {
+    ultimosGruposEstadisticas[clave] = { titulo: `Forecast · ${titulo}`, deals: [...ganadosQ, ...abiertosQ] };
+    return `<tr style="cursor:pointer;" data-grupo="${clave}"><td>${titulo}</td>`
+      + `<td>${fmtUSD(suma(ganadosQ))}</td>`
+      + `<td>${fmtUSD(suma(abiertosQ.filter(d => d.etapa === "forecastcommit")))}</td>`
+      + `<td>${fmtUSD(suma(abiertosQ.filter(d => d.etapa === "forecast")))}</td>`
+      + `<td>${fmtUSD(ponderado(abiertosQ))}</td>`
+      + `<td>${fmtUSD(suma(abiertosQ.filter(d => d.upside)))}</td>`
+      + `<td>${fmtUSD(suma(abiertosQ))} <span style="color:var(--texto-suave);">(${abiertosQ.length})</span></td></tr>`;
+  };
+
+  const filas = [];
+  const atrasados = abiertos.filter(d => indiceQ(d.fecha) !== null && indiceQ(d.fecha) < actual);
+  if(atrasados.length) filas.push(fila("fq:atrasados", "Atrasados (cierre vencido)", atrasados, []));
+  for(let i = actual; i < actual + 4; i++){
+    const ganadosQ = base.filter(d => d.etapa === "won" && indiceQ(d.fechaAdjudicacion || d.fechaCambioEtapa) === i);
+    filas.push(fila(`fq:${i}`, nombreQ(i), abiertos.filter(d => indiceQ(d.fecha) === i), ganadosQ));
+  }
+  const despues = abiertos.filter(d => indiceQ(d.fecha) !== null && indiceQ(d.fecha) >= actual + 4);
+  if(despues.length) filas.push(fila("fq:despues", "Más adelante", despues, []));
+  const sinFecha = abiertos.filter(d => indiceQ(d.fecha) === null);
+  if(sinFecha.length) filas.push(fila("fq:sinfecha", "Sin fecha de cierre", sinFecha, []));
+
+  return `
+    <div>
+      <div class="stats-seccion-titulo">Forecast por quarter <span style="font-weight:400;">(por fecha estimada de cierre — no usa los filtros de Año y Trimestre)</span></div>
+      <table class="stats-tabla">
+        <thead><tr><th>Quarter</th><th>Ganado</th><th>Commit</th><th>Forecast</th><th>Ponderado</th><th>Upside</th><th>Pipeline abierto</th></tr></thead>
+        <tbody>${filas.join("")}</tbody>
+      </table>
+      <div style="font-size:11.5px; color:var(--texto-suave); margin-top:4px;">Commit = etapa Forecast Commit · Ponderado = valor × probabilidad de la etapa, sobre los abiertos · Upside = abiertos marcados como elegibles para adelantarse de quarter.</div>
+    </div>
   `;
 }
 
@@ -2757,7 +2840,7 @@ function renderTablero(){
   });
 
   const info = document.getElementById("resultadosInfo");
-  const hayFiltro = filtros.busqueda || filtros.cliente || filtros.pais || filtros.vendedor;
+  const hayFiltro = filtros.soloMias || filtros.busqueda || filtros.cliente || filtros.pais || filtros.vendedor;
   info.textContent = hayFiltro
     ? `Mostrando ${totalVisible} de ${deals.length} oportunidades`
     : `${deals.length} oportunidades en total`;
@@ -3410,6 +3493,16 @@ document.getElementById("form").addEventListener("submit", async e => {
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" como Perdida todavía: falta elegir el motivo de pérdida.`);
     return;
   }
+  // Aviso de posible duplicado (21 oct 2026): solo al dar de alta, y solo avisa — si de verdad son dos
+  // oportunidades distintas del mismo cliente, se confirma y se guarda igual.
+  if(!editandoId){
+    const similares = buscarPosiblesDuplicados(datos);
+    if(similares.length > 0){
+      const lista = similares.map(d => `• ${d.titulo} — ${d.vendedor || "sin vendedor"}, ${ETAPAS.find(e => e.id === d.etapa)?.nombre || d.etapa}`).join("\n");
+      if(!confirm(`Ya hay ${similares.length === 1 ? "una oportunidad abierta parecida" : similares.length + " oportunidades abiertas parecidas"} para ${datos.cliente} (${datos.pais}):\n\n${lista}\n\n¿Es una oportunidad distinta y querés guardarla igual?`)) return;
+    }
+  }
+
   // Se calcula ANTES de guardar: comparar contra listas ya actualizadas con este mismo deal
   // haría que nunca se detecte un valor como "nuevo".
   const conocidosAntesDeGuardar = {
@@ -3466,6 +3559,20 @@ document.getElementById("filtroCliente").addEventListener("change", renderTabler
 document.getElementById("filtroPais").addEventListener("change", renderTablero);
 document.getElementById("filtroAnio").addEventListener("change", renderTablero);
 document.getElementById("filtroTrimestre").addEventListener("change", renderTablero);
+document.getElementById("filtroSoloMias").addEventListener("change", renderTablero);
+
+// "Solo mis oportunidades" (21 oct 2026): arranca tildado para los comerciales del roster (que solo pueden
+// mover lo suyo, ver puedeEditarDeal) y destildado para el admin y para quien no está en el roster
+// (CRM-Lectura), que no tiene deals propios. Se decide una sola vez por sesión, cuando llega el roster
+// de Comerciales_Preventas; después queda a gusto del usuario. "Limpiar filtros" no lo toca: es una vista.
+let vistaMiasInicializada = false;
+function aplicarVistaMiasPorDefecto(){
+  if(vistaMiasInicializada || !modoConectado || comerciales.length === 0) return;
+  vistaMiasInicializada = true;
+  const chk = document.getElementById("filtroSoloMias");
+  chk.checked = !esAdmin() && comerciales.some(c => c.email === emailUsuarioActual());
+  if(chk.checked) renderTablero();
+}
 document.getElementById("buscador").addEventListener("input", renderTablero);
 
 document.getElementById("btnLimpiar").addEventListener("click", () => {
@@ -3599,6 +3706,7 @@ async function iniciarApp(){
         await cargarDealsDesdeGraph();
         cargarBasesMaestras().then(() => {
           poblarSelects(); actualizarContactoProveedorGuardadoUI();
+          aplicarVistaMiasPorDefecto();
           // Si la pestaña activa es Clientes/Proveedores/Contactos, la vuelve a renderizar ahora
           // que ya llegaron los datos reales (antes de esto, si el usuario entró directo por hash
           // en #clientes por ej., la tabla habría quedado vacía esperando la conexión).
