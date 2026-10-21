@@ -964,6 +964,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
   <div class="modal">
     <h2 id="modalTitulo">Nueva oportunidad</h2>
     <div id="modalNumeroDeal" style="display:none; font-size:12.5px; color:var(--texto-suave); margin-top:-8px; margin-bottom:8px;"></div>
+    <div id="avisoSoloLectura" style="display:none; font-size:12.5px; background:#FFF4E5; color:#8A5300; border:1px solid #F5D9A8; border-radius:6px; padding:8px 10px; margin-bottom:10px;">🔒 Solo lectura: este deal es de otro comercial. Solo su dueño o un administrador pueden modificarlo.</div>
     <form id="form">
       <div class="campo">
         <label>Nombre de la oportunidad</label>
@@ -1379,7 +1380,7 @@ const LIST_ID_VENDORS = "f88ac83e-7197-4772-a140-14f092ed32c0"; // lista Vendors
 const LIST_ID_CLIENTES_EMPRESAS = "7a499509-5ae6-4dfc-9084-00b8022cedef"; // lista Clientes (empresas)
 // Comerciales_Preventas (1 sep 2026): roster de comerciales/presales con su email real y si es admin.
 // Fuente única para: (1) el combo cerrado Vendedor del deal (ya no texto libre), (2) el candado de
-// "solo el dueño del deal puede moverlo de etapa" (ver puedeMoverEtapa), y (3) el flujo de Power
+// "solo el dueño del deal puede modificarlo" (ver puedeEditarDeal), y (3) el flujo de Power
 // Automate que Patricio está armando para dar permisos de carpeta según el dueño del proceso.
 const LIST_ID_COMERCIALES = "ec0b137a-292b-4a61-ae2e-c5f672c2f385";
 // Presales_Preventas (8 sep 2026): roster separado, solo presales (antes mezclado con comerciales
@@ -1492,15 +1493,25 @@ function esAdmin(){
   return !!(c && c.esAdmin);
 }
 
-// Candado de "solo el dueño mueve el deal de etapa" (1 sep 2026, a pedido de Patricio): igual que
-// esAdmin(), es un candado a nivel app (no un permiso real de SharePoint) — evita que un comercial
-// mueva por error el deal de otro. Deals viejos sin VendedorEmail cargado (previos a este cambio, o
-// nunca guardados desde que existe el campo) quedan sin restricción hasta que alguien los vuelva a
-// guardar con un Vendedor asignado — así no se traba de golpe el tablero con los deals existentes.
-function puedeMoverEtapa(deal){
+// Candado de "solo el dueño modifica el deal" (1 sep 2026 para la etapa; extendido a TODO el deal el
+// 21 oct 2026, a pedido de Patricio): igual que esAdmin(), es un candado a nivel app (no un permiso
+// real de SharePoint). Quien no es dueño ni admin ve el deal en solo lectura.
+function emailUsuarioActual(){
+  return cuentaActiva ? (cuentaActiva.username || "").toLowerCase() : "";
+}
+// Dueño = VendedorEmail. Deals viejos sin ese campo: se resuelve por nombre contra el roster de
+// Comerciales_Preventas; si tampoco matchea, el deal queda sin dueño y solo el admin lo puede tocar
+// (y asignarle un Vendedor). Al guardarlo, el email resuelto queda grabado en VendedorEmail.
+function emailDuenoDeal(deal){
+  if(deal.vendedorEmail) return deal.vendedorEmail.toLowerCase();
+  const c = comerciales.find(x => x.nombre.toLowerCase() === (deal.vendedor || "").toLowerCase());
+  return c ? c.email : "";
+}
+function puedeEditarDeal(deal){
+  if(!modoConectado) return true; // modo prueba (?demo=1): datos en memoria, sin usuario logueado
   if(esAdmin()) return true;
-  if(!deal.vendedorEmail) return true;
-  return !!cuentaActiva && (cuentaActiva.username || "").toLowerCase() === deal.vendedorEmail.toLowerCase();
+  const dueno = emailDuenoDeal(deal);
+  return !!dueno && dueno === emailUsuarioActual();
 }
 
 function initMsal(){
@@ -1941,6 +1952,7 @@ let vendorsSeleccionados = [];  // vendors del deal que se está editando/creand
 let contactosProveedorPorVendor = {};
 let editandoId = null;
 let etapaOriginal = null;
+let modalSoloLectura = false; // el deal abierto no es del usuario (ver aplicarSoloLecturaModal)
 // Grupos de deals detrás de cada tarjeta/fila clickeable de Estadísticas (1 sep 2026) — recalculado
 // en cada renderEstadisticas(), leído por abrirListaDeals() cuando se hace click. Claves: "abierto",
 // "ganadas", "perdidas", "cierres", y "etapa:<id>" por cada etapa.
@@ -2490,7 +2502,7 @@ function abrirModalClienteBD(id){
   const c = id ? clientesEmpresas.find(x => x.id === id) : null;
   document.getElementById("c_empresa").value = c ? c.empresa : "";
   document.getElementById("c_notas").value = c ? c.notas : "";
-  document.getElementById("btnEliminarCliente").style.display = c ? "inline-block" : "none";
+  document.getElementById("btnEliminarCliente").style.display = c && esAdmin() ? "inline-block" : "none";
   // Botón "Contactos" solo tiene sentido para una empresa ya guardada (con nombre para matchear) —
   // la lista arranca siempre colapsada, se recalcula recién al hacer click (ver toggleListaContactosEmpresa).
   const nContactosCliente = c ? contactosClientes.filter(x => x.empresa.toLowerCase() === c.empresa.toLowerCase()).length : 0;
@@ -2506,7 +2518,7 @@ function abrirModalProveedorBD(id){
   document.getElementById("p_web").value = p ? p.web : "";
   document.getElementById("p_productos").value = p ? p.productos : "";
   document.getElementById("p_descripcion").value = p ? p.descripcion : "";
-  document.getElementById("btnEliminarProveedor").style.display = p ? "inline-block" : "none";
+  document.getElementById("btnEliminarProveedor").style.display = p && esAdmin() ? "inline-block" : "none";
   const nContactosProveedor = p ? contactosProveedor.filter(x => x.empresa.toLowerCase() === p.nombre.toLowerCase()).length : 0;
   document.getElementById("btnVerContactosProveedor").textContent = `📇 Contactos (${nContactosProveedor})`;
   document.getElementById("btnVerContactosProveedor").style.display = p ? "inline-block" : "none";
@@ -2539,7 +2551,7 @@ function abrirModalContactoBD(id){
   document.getElementById("ct_pais").value = c ? c.pais : "";
   document.getElementById("ct_ubicacion").value = c ? c.ubicacion : "";
   document.getElementById("ct_notas").value = c ? c.notas : "";
-  document.getElementById("btnEliminarContacto").style.display = c ? "inline-block" : "none";
+  document.getElementById("btnEliminarContacto").style.display = c && esAdmin() ? "inline-block" : "none";
   document.getElementById("overlayContacto").classList.add("activo");
 }
 
@@ -2636,18 +2648,21 @@ document.getElementById("formContacto").addEventListener("submit", async e => {
   } catch(err){ alert("No se pudo guardar: " + err.message); }
 });
 document.getElementById("btnEliminarCliente").addEventListener("click", async () => {
+  if(!esAdmin()){ alert("Eliminar registros de la base es una acción reservada al administrador del CRM."); return; }
   if(!editandoClienteIdBD || !confirm("¿Eliminar este cliente? Los contactos linkeados a él van a quedar sin empresa asociada.")) return;
   await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items/${editandoClienteIdBD}`, { method: "DELETE" });
   document.getElementById("overlayCliente").classList.remove("activo");
   await refrescarTrasEdicionBD();
 });
 document.getElementById("btnEliminarProveedor").addEventListener("click", async () => {
+  if(!esAdmin()){ alert("Eliminar registros de la base es una acción reservada al administrador del CRM."); return; }
   if(!editandoProveedorIdBD || !confirm("¿Eliminar este proveedor? Los contactos linkeados a él van a quedar sin empresa asociada.")) return;
   await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items/${editandoProveedorIdBD}`, { method: "DELETE" });
   document.getElementById("overlayProveedor").classList.remove("activo");
   await refrescarTrasEdicionBD();
 });
 document.getElementById("btnEliminarContacto").addEventListener("click", async () => {
+  if(!esAdmin()){ alert("Eliminar registros de la base es una acción reservada al administrador del CRM."); return; }
   if(!editandoContactoIdBD || !confirm("¿Eliminar este contacto?")) return;
   await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items/${editandoContactoIdBD}`, { method: "DELETE" });
   document.getElementById("overlayContacto").classList.remove("activo");
@@ -2717,7 +2732,7 @@ function renderTablero(){
 
       // Doble chequeo (la tarjeta ya no es draggable si no corresponde, ver crearTarjeta): por si
       // el drop llega igual, por ejemplo arrastrando desde otra tarjeta encima de esta.
-      if(!puedeMoverEtapa(deal)){
+      if(!puedeEditarDeal(deal)){
         abrirBloqueo(`No podés mover "${deal.titulo}" de etapa: solo puede hacerlo el comercial dueño del deal o un administrador.`);
         return;
       }
@@ -2761,9 +2776,9 @@ function esUrlSegura(url){
 function crearTarjeta(d){
   const el = document.createElement("div");
   el.className = "tarjeta";
-  const puedeMover = puedeMoverEtapa(d);
+  const puedeMover = puedeEditarDeal(d);
   el.draggable = puedeMover;
-  if(!puedeMover) el.title = "Solo el comercial dueño de este deal (o un administrador) puede moverlo de etapa. Podés abrirlo igual para verlo o editar otros datos.";
+  if(!puedeMover) el.title = "Solo el comercial dueño de este deal (o un administrador) puede modificarlo. Podés abrirlo para verlo, en solo lectura.";
   el.dataset.id = d.id;
 
   const vencida = fechaVencida(d.fechaProximaAccion);
@@ -2811,6 +2826,7 @@ function crearTarjeta(d){
 
 // ---- Cambio de etapa: mover, confirmar cierre, deshacer ----
 function moverDeal(deal, etapaDestino, opciones = {}){
+  if(!puedeEditarDeal(deal)) return; // último candado: todos los caminos del tablero ya lo chequean antes
   const mostrarToast = opciones.mostrarToast !== false;
   const etapaAnterior = deal.etapa;
   const fechaAnterior = deal.fechaCambioEtapa;
@@ -3042,6 +3058,7 @@ function abrirModal(id){
   editandoId = id || null;
   const overlay = document.getElementById("overlay");
   const btnEliminar = document.getElementById("btnEliminar");
+  let soloLectura = false;
 
   if(id){
     const d = deals.find(x => x.id === id);
@@ -3067,12 +3084,10 @@ function abrirModal(id){
       (presales.find(p => p.nombre.toLowerCase() === (d.presalesAsignado || "").toLowerCase())?.email) || "";
     poblarSelectEtapa(false); // editando: se muestran todas las etapas, incluso Forecast/Won/Lost
     document.getElementById("f_etapa").value = d.etapa;
-    // Candado de mover etapa (1 sep 2026): si no sos el dueño ni admin, el combo Etapa queda solo
-    // lectura — mismo criterio que se aplica al arrastrar la tarjeta en el tablero (puedeMoverEtapa).
-    const puedeEtapa = puedeMoverEtapa(d);
-    const selEtapa = document.getElementById("f_etapa");
-    selEtapa.disabled = !puedeEtapa;
-    selEtapa.title = puedeEtapa ? "" : "Solo el comercial dueño de este deal (o un administrador) puede cambiarle la etapa.";
+    // Candado de dueño: si no sos el dueño ni admin, el modal entero queda en solo lectura (se aplica
+    // al final de abrirModal, ver aplicarSoloLecturaModal) — mismo criterio que el tablero.
+    soloLectura = !puedeEditarDeal(d);
+    document.getElementById("f_etapa").disabled = false;
     document.getElementById("f_sucursal").value = d.sucursal || "";
     document.getElementById("f_valor").value = d.valor;
     document.getElementById("f_upside").checked = !!d.upside;
@@ -3111,9 +3126,10 @@ function abrirModal(id){
     document.getElementById("form").reset();
     poblarSelectEtapa(true); // alta nueva: solo las primeras 4 etapas, nunca directo en Forecast en adelante
     document.getElementById("f_etapa").value = "universe";
-    // Deal nuevo: todavía no tiene dueño asignado, el candado de mover etapa no aplica acá.
+    // Deal nuevo: el dueño es quien lo da de alta (un comercial no puede cargarlo a nombre de otro;
+    // el admin sí, ver bloqueo del combo Vendedor al final de abrirModal).
     document.getElementById("f_etapa").disabled = false;
-    document.getElementById("f_etapa").title = "";
+    if(modoConectado && !esAdmin()) document.getElementById("f_vendedor").value = emailUsuarioActual();
     document.getElementById("f_upside").checked = false;
     document.getElementById("wrapCansCreado").style.display = "none";
     // Fecha de cierre (1 sep 2026, ajuste tras confusión real de Patricio): a diferencia de "Estado
@@ -3133,7 +3149,35 @@ function abrirModal(id){
   }
 
   actualizarVisibilidadMotivoPerdida();
+  aplicarSoloLecturaModal(soloLectura);
+  // Vendedor = dueño del deal: solo el admin lo puede reasignar (si no, un comercial podía ponerse
+  // como Vendedor de un deal ajeno y quedarse con él). Va después de aplicarSoloLecturaModal, que
+  // no toca lo que ya estaba deshabilitado.
+  const selVendedor = document.getElementById("f_vendedor");
+  selVendedor.disabled = soloLectura || (modoConectado && !esAdmin());
+  selVendedor.title = selVendedor.disabled && !soloLectura ? "Solo un administrador puede cambiar el comercial dueño del deal." : "";
   overlay.classList.add("activo");
+}
+
+// Modal de oportunidad en solo lectura (21 oct 2026): para quien abre un deal que no es suyo. Se
+// deshabilita todo el formulario menos Cancelar (que pasa a decir "Cerrar") y se oculta Guardar.
+// Marca con data-bloqueo-lectura lo que deshabilita, para no rehabilitar después campos que son
+// siempre de solo lectura (Probabilidad, Quarter).
+function aplicarSoloLecturaModal(activar){
+  modalSoloLectura = activar;
+  const form = document.getElementById("form");
+  form.querySelectorAll("input, select, textarea, button").forEach(el => {
+    if(el.id === "btnCancelar") return;
+    if(activar){
+      if(!el.disabled){ el.disabled = true; el.dataset.bloqueoLectura = "1"; }
+    } else if(el.dataset.bloqueoLectura){
+      el.disabled = false;
+      delete el.dataset.bloqueoLectura;
+    }
+  });
+  form.querySelector('button[type="submit"]').style.display = activar ? "none" : "";
+  document.getElementById("btnCancelar").textContent = activar ? "Cerrar" : "Cancelar";
+  document.getElementById("avisoSoloLectura").style.display = activar ? "block" : "none";
 }
 
 // ---- Probabilidad automática por etapa, y Quarter/Año calculados de la Fecha estimada de cierre ----
@@ -3246,7 +3290,7 @@ document.getElementById("btnActualizarBases").addEventListener("click", async ()
 // de Cliente/Proveedor/Contacto) sí cierran del todo con click afuera — son formularios cortos, sin
 // el mismo riesgo de pérdida.
 document.getElementById("overlay").addEventListener("click", e => {
-  if(e.target.id === "overlay") pausarModalOportunidad();
+  if(e.target.id === "overlay") modalSoloLectura ? cerrarModal() : pausarModalOportunidad(); // en solo lectura no hay nada que perder
 });
 
 document.getElementById("btnEliminar").addEventListener("click", async () => {
@@ -3315,6 +3359,27 @@ document.getElementById("form").addEventListener("submit", async e => {
     linkCans: document.getElementById("f_linkCans").value.trim(),
   };
 
+  // Candado de dueño: el modal ya queda en solo lectura en abrirModal() para quien no es dueño, pero
+  // este chequeo es el que realmente importa — un disabled se puede sortear editando el DOM a mano.
+  if(modoConectado && !esAdmin()){
+    if(editandoId){
+      const dOriginal = deals.find(x => x.id === editandoId);
+      if(dOriginal && !puedeEditarDeal(dOriginal)){
+        abrirBloqueo(`No podés modificar "${datos.titulo || "esta oportunidad"}": solo puede hacerlo el comercial dueño del deal o un administrador.`);
+        return;
+      }
+      if(dOriginal && datos.vendedorEmail.toLowerCase() !== emailDuenoDeal(dOriginal)){
+        abrirBloqueo(`No podés cambiar el comercial dueño de "${datos.titulo || "esta oportunidad"}": solo un administrador puede reasignar un deal.`);
+        return;
+      }
+    } else if(datos.vendedorEmail.toLowerCase() !== emailUsuarioActual()){
+      abrirBloqueo(comerciales.some(c => c.email === emailUsuarioActual())
+        ? `Un deal nuevo queda a tu nombre: no podés darlo de alta para otro comercial.`
+        : `No podés dar de alta oportunidades: tu usuario no está en la lista Comerciales_Preventas. Pedile al administrador que te agregue.`);
+      return;
+    }
+  }
+
   // Un deal nuevo solo puede darse de alta en las primeras 4 etapas (nunca directo en Forecast en
   // adelante) — chequeo defensivo además de la restricción del propio <select> en abrirModal().
   if(!editandoId && !ETAPAS_ALTA_PERMITIDAS.includes(datos.etapa)){
@@ -3345,17 +3410,6 @@ document.getElementById("form").addEventListener("submit", async e => {
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" como Perdida todavía: falta elegir el motivo de pérdida.`);
     return;
   }
-  // Candado de mover etapa (1 sep 2026): el combo Etapa ya queda disabled en abrirModal() para quien
-  // no puede moverlo, pero este chequeo es el que realmente importa — un disabled se puede sortear
-  // editando el DOM a mano. Doble chequeo, mismo criterio que en el tablero (puedeMoverEtapa).
-  if(editandoId && datos.etapa !== etapaOriginal){
-    const dOriginal = deals.find(x => x.id === editandoId);
-    if(dOriginal && !puedeMoverEtapa(dOriginal)){
-      abrirBloqueo(`No podés cambiar la etapa de "${datos.titulo || "esta oportunidad"}": solo puede moverla el comercial dueño del deal o un administrador.`);
-      return;
-    }
-  }
-
   // Se calcula ANTES de guardar: comparar contra listas ya actualizadas con este mismo deal
   // haría que nunca se detecte un valor como "nuevo".
   const conocidosAntesDeGuardar = {
