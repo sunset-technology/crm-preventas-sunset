@@ -1693,33 +1693,41 @@ let contactosProveedor = [];   // [{empresa, nombre, cargo, email, telefono}] �
 let comerciales = [];          // [{nombre, email, esAdmin}] — lista Comerciales_Preventas
 let presales = [];             // [{nombre, email}] — lista Presales_Preventas
 
+// Cada lista se carga por separado (allSettled, 23 oct 2026): antes, con Promise.all, si una sola fallaba
+// (ej. un usuario recién agregado a CRM-Preventas cuyo permiso todavía no se propagó en SharePoint) se
+// perdían las cinco en silencio — sin roster de comerciales, el combo Vendedor quedaba vacío. Una lista
+// que falla conserva lo que ya tenía cargado y se avisa al usuario que recargue.
 async function cargarBasesMaestras(){
+  const fuentes = [
+    ["Clientes", LIST_ID_CLIENTES_EMPRESAS], ["Proveedores", LIST_ID_VENDORS], ["Contactos", LIST_ID_CLIENTES],
+    ["Comerciales_Preventas", LIST_ID_COMERCIALES], ["Presales_Preventas", LIST_ID_PRESALES],
+  ];
+  const resultados = await Promise.allSettled(fuentes.map(([, id]) => graphFetch(`/sites/${SITE_ID}/lists/${id}/items?expand=fields&$top=1000`)));
+  const fallidas = fuentes.filter((_, i) => resultados[i].status === "rejected").map(([nombre]) => nombre);
+  resultados.forEach((r, i) => { if(r.status === "rejected") console.warn(`No se pudo cargar ${fuentes[i][0]}:`, r.reason); });
+  if(fallidas.length > 0){
+    alert(`No se pudieron cargar estas listas de SharePoint: ${fallidas.join(", ")}.\n\nAlgunos desplegables (por ejemplo Vendedor) pueden quedar vacíos. Recargá la página en unos minutos; si sigue pasando, avisale al administrador.`);
+  }
+  const [dc, dp, dct, dcom, dpre] = resultados.map(r => r.status === "fulfilled" ? r.value : null);
   try {
-    const [dc, dp, dct, dcom, dpre] = await Promise.all([
-      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES_EMPRESAS}/items?expand=fields&$top=1000`),
-      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_VENDORS}/items?expand=fields&$top=1000`),
-      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_CLIENTES}/items?expand=fields&$top=1000`),
-      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_COMERCIALES}/items?expand=fields&$top=1000`),
-      graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID_PRESALES}/items?expand=fields&$top=1000`),
-    ]);
-    comerciales = (dcom.value || []).map(it => ({
+    if(dcom) comerciales = (dcom.value || []).map(it => ({
       nombre: it.fields.Title || "",
       email: (it.fields.Email || "").toLowerCase(),
       esAdmin: !!it.fields.EsAdmin,
     })).filter(c => c.nombre && c.email);
-    presales = (dpre.value || []).map(it => ({
+    if(dpre) presales = (dpre.value || []).map(it => ({
       nombre: it.fields.Title || "",
       email: (it.fields.Email || "").toLowerCase(),
     })).filter(p => p.nombre && p.email);
-    clientesEmpresas = (dc.value || []).map(it => ({ id: it.id, empresa: it.fields.Empresa || "", notas: it.fields.Notas || "" }));
-    proveedoresEmpresas = (dp.value || []).map(it => ({
+    if(dc) clientesEmpresas = (dc.value || []).map(it => ({ id: it.id, empresa: it.fields.Empresa || "", notas: it.fields.Notas || "" }));
+    if(dp) proveedoresEmpresas = (dp.value || []).map(it => ({
       id: it.id,
       nombre: it.fields.NombreVendor || "",
       web: it.fields.Web || "",
       productos: it.fields.Productos || "",
       descripcion: it.fields.Descripcion || "",
     }));
-    const todosContactos = (dct.value || []).map(it => ({
+    const todosContactos = dct && (dct.value || []).map(it => ({
       id: it.id,
       tipo: it.fields.TipoEmpresa || "",
       empresa: it.fields.Empresa || "",
@@ -1731,9 +1739,11 @@ async function cargarBasesMaestras(){
       ubicacion: it.fields.Ubicacion || "",
       notas: it.fields.Notas || "",
     }));
-    contactosClientes = todosContactos.filter(c => c.tipo === "Cliente");
-    contactosProveedor = todosContactos.filter(c => c.tipo === "Proveedor");
-  } catch(e) { console.warn("No se pudieron cargar Clientes/Proveedores/Contactos:", e); }
+    if(todosContactos){
+      contactosClientes = todosContactos.filter(c => c.tipo === "Cliente");
+      contactosProveedor = todosContactos.filter(c => c.tipo === "Proveedor");
+    }
+  } catch(e) { console.warn("No se pudieron procesar las listas base:", e); }
 }
 // Filtra por Empresa Y País: un mismo cliente (ej. "CLARO") puede tener contactos en varios países,
 // y mezclarlos todos en una sola lista larga no sirve — solo interesan los del país de este deal.
