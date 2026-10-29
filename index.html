@@ -1110,8 +1110,12 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
       <div class="seccion-titulo">Documentos</div>
       <div class="campo">
-        <label>Link al CANS / carpeta del proyecto <span style="font-weight:400;">(obligatorio a partir de "Proposal")</span></label>
+        <label>Link al CANS <span style="font-weight:400;">(obligatorio a partir de "Proposal")</span></label>
         <input type="text" id="f_linkCans" placeholder="https://sunsettechnology567.sharepoint.com/...">
+      </div>
+      <div class="campo" id="wrapCarpeta" style="display:none;">
+        <label>Carpeta del proceso</label>
+        <a id="linkCarpeta" target="_blank" rel="noopener" style="font-size:12.5px; color:var(--azul-sunset);">📁 Abrir carpeta en SharePoint</a>
       </div>
       <div class="campo" id="wrapCansCreado" style="display:none;">
         <label>Estado del CANS</label>
@@ -1484,6 +1488,9 @@ const CAMPO_SP = {
   // querer en el mismo momento y se borró (ver memoria del proyecto, 8 sep 2026).
   presalesAsignado: "PresalesAsignadoNombre",
   presalesAsignadoEmail: "PresalesAsignadoEmail",
+  // Link a la carpeta del proceso (29 oct 2026): lo escribe el Flujo Q al crear la carpeta (y la migración
+  // de carpetas viejas). Solo lectura acá: el CRM nunca lo edita.
+  linkCarpeta: "LinkCarpeta",
 };
 
 let msalInstance = null;
@@ -1617,6 +1624,7 @@ function dealDesdeItemGraph(item){
     fechaProximaAccion: (f[CAMPO_SP.fechaProximaAccion] || "").slice(0, 10),
     notas: f[CAMPO_SP.notas] || "",
     linkCans: f[CAMPO_SP.linkCans] || "",
+    linkCarpeta: f[CAMPO_SP.linkCarpeta] || "",
     cansCreado: !!f[CAMPO_SP.cansCreado],
     fechaCreacionCans: (f[CAMPO_SP.fechaCreacionCans] || "").slice(0, 10),
     fechaAdjudicacion: (f[CAMPO_SP.fechaAdjudicacion] || "").slice(0, 10),
@@ -1973,7 +1981,7 @@ document.getElementById("btnLoginInicial").addEventListener("click", async () =>
 // fechaCambioEtapa: fecha del último movimiento de etapa (campo interno, no se carga a mano —
 // lo actualiza la propia app cada vez que una tarjeta cambia de columna).
 const DEALS_DEMO = [
-  { id: "1", titulo: "Cliente Demo Alfa - Renovación plataforma", cliente: "CLIENTE DEMO ALFA", pais: "Guatemala", vendedor: "Vendedor Demo 1", etapa: "proposal", sucursal: "Argentina", valor: 150000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Nota de ejemplo: el cliente pidió incluir soporte 24x7.", contactoNombre: "Contacto Ficticio", contactoCargo: "Gerente de Redes", contactoEmail: "contacto@example.com", contactoTelefono: "+00 0000 0000", vendors: ["Vendor Demo A", "Vendor Demo B"], fechaPrimerContacto: "2026-07-15", fechaProximaAccion: "2026-09-01", linkCans: "https://example.com/cans-demo-1", cansCreado: true, fechaCreacionCans: "2026-08-10" },
+  { id: "1", titulo: "Cliente Demo Alfa - Renovación plataforma", cliente: "CLIENTE DEMO ALFA", pais: "Guatemala", vendedor: "Vendedor Demo 1", etapa: "proposal", sucursal: "Argentina", valor: 150000, accion: "Armar CANS", fecha: "2026-08-18", fechaCambioEtapa: "2026-08-10", notas: "Nota de ejemplo: el cliente pidió incluir soporte 24x7.", contactoNombre: "Contacto Ficticio", contactoCargo: "Gerente de Redes", contactoEmail: "contacto@example.com", contactoTelefono: "+00 0000 0000", vendors: ["Vendor Demo A", "Vendor Demo B"], fechaPrimerContacto: "2026-07-15", fechaProximaAccion: "2026-09-01", linkCans: "https://example.com/cans-demo-1", linkCarpeta: "https://example.com/carpeta-demo-1", cansCreado: true, fechaCreacionCans: "2026-08-10" },
   { id: "2", titulo: "Cliente Demo Beta - Ampliación core", cliente: "CLIENTE DEMO BETA", pais: "Perú", vendedor: "Vendedor Demo 2", etapa: "forecastcommit", valor: 300000, accion: "Ajustar condiciones comerciales", fecha: "2026-08-15", fechaCambioEtapa: "2026-07-28", notas: "Nota de ejemplo: prioridad alta.", linkCans: "https://example.com/cans-demo-2" },
   { id: "3", titulo: "Cliente Demo Gamma - Integración", cliente: "CLIENTE DEMO GAMMA", pais: "Colombia", vendedor: "Vendedor Demo 1", etapa: "forecast", valor: 90000, accion: "Follow up propuesta", fecha: "2026-08-20", fechaCambioEtapa: "2026-08-05", linkCans: "https://example.com/cans-demo-3" },
   { id: "4", titulo: "Cliente Demo Delta - Nueva plataforma", cliente: "CLIENTE DEMO DELTA", pais: "Chile", vendedor: "Vendedor Demo 2", etapa: "qualified", valor: 200000, accion: "Agendar relevamiento técnico", fecha: "2026-08-25", fechaCambioEtapa: "2026-08-11" },
@@ -2914,6 +2922,7 @@ function crearTarjeta(d){
   `;
 
   const documentos = [
+    { url: d.linkCarpeta, texto: "📁 Carpeta" },
     { url: d.linkCans, texto: "🔗 Ver CANS" },
   ].filter(doc => doc.url && esUrlSegura(doc.url));
 
@@ -3229,6 +3238,10 @@ function abrirModal(id){
     document.getElementById("f_fechaProximaAccion").value = d.fechaProximaAccion || "";
     document.getElementById("f_notas").value = d.notas || "";
     document.getElementById("f_linkCans").value = d.linkCans || "";
+    // Carpeta del proceso: link asignado vía DOM (no interpolado) y solo si es http(s), igual que en la tarjeta
+    const tieneCarpeta = esUrlSegura(d.linkCarpeta);
+    document.getElementById("wrapCarpeta").style.display = tieneCarpeta ? "block" : "none";
+    if(tieneCarpeta) document.getElementById("linkCarpeta").href = d.linkCarpeta;
     document.getElementById("wrapCansCreado").style.display = "block";
     document.getElementById("indicadorCansCreado").textContent = d.cansCreado
       ? "✓ CANS creado" + (d.fechaCreacionCans ? ` (${fmtFecha(d.fechaCreacionCans)})` : "")
@@ -3252,6 +3265,7 @@ function abrirModal(id){
     document.getElementById("f_etapa").disabled = false;
     if(modoConectado && !esAdmin()) document.getElementById("f_vendedor").value = emailUsuarioActual();
     document.getElementById("f_upside").checked = false;
+    document.getElementById("wrapCarpeta").style.display = "none";
     document.getElementById("wrapCansCreado").style.display = "none";
     // Fecha de cierre (1 sep 2026, ajuste tras confusión real de Patricio): a diferencia de "Estado
     // del CANS" (que sí se oculta en un deal nuevo), este campo queda SIEMPRE visible, incluso en
