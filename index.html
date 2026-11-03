@@ -1361,6 +1361,16 @@ const ETAPAS_ORIGEN_WON = ["forecast", "forecastcommit"];
 // bloqueo duro que GATE_CANS (no se puede ENTRAR a esa etapa sin el dato). No aplica a Won/Lost, igual
 // que CANS, por diseño (esas 2 etapas siguen alcanzables desde cualquier lado sin restricción extra).
 const GATE_PRESALES = ["qualified", "proposal", "forecast", "forecastcommit"];
+// Valor estimado obligatorio (> 0) desde Qualified (3 nov 2026, a pedido de Patricio): mismo bloqueo
+// duro y mismas etapas que GATE_PRESALES. En Qualified alcanza con un valor aproximado.
+const GATE_VALOR = ["qualified", "proposal", "forecast", "forecastcommit"];
+// Sucursal (filial) Sunset responsable obligatoria desde Qualified (3 nov 2026, a pedido de Patricio).
+const GATE_SUCURSAL = ["qualified", "proposal", "forecast", "forecastcommit"];
+// Pipeline vs Forecast en Estadísticas (3 nov 2026, criterio de Sunset): Pipeline = se trabaja una
+// posible venta y ya se pueden hacer números (Qualified); Forecast = ya hay propuesta formal al
+// cliente (Proposal, Forecast, Forecast Commit). Universe y Lead/Unqualified no entran en ninguno.
+const ETAPAS_PIPELINE = ["qualified"];
+const ETAPAS_FORECAST = ["proposal", "forecast", "forecastcommit"];
 
 // ==========================================================================
 // ---- Conexión a Microsoft Graph (MSAL.js) ----
@@ -2003,8 +2013,8 @@ let editandoId = null;
 let etapaOriginal = null;
 let modalSoloLectura = false; // el deal abierto no es del usuario (ver aplicarSoloLecturaModal)
 // Grupos de deals detrás de cada tarjeta/fila clickeable de Estadísticas (1 sep 2026) — recalculado
-// en cada renderEstadisticas(), leído por abrirListaDeals() cuando se hace click. Claves: "abierto",
-// "ganadas", "perdidas", "cierres", y "etapa:<id>" por cada etapa.
+// en cada renderEstadisticas(), leído por abrirListaDeals() cuando se hace click. Claves: "forecast",
+// "pipeline", "sincalificar", "ganadas", "perdidas", "cierres", y "etapa:<id>" por cada etapa.
 let ultimosGruposEstadisticas = {};
 let pendingConfirm = null;    // { dealId, etapaDestino } mientras espera confirmación de cierre
 let pendingLink = null;       // { dealId, etapaDestino, tipo: 'cans'|'propuesta' } mientras espera que se pegue un link
@@ -2247,6 +2257,9 @@ function renderEstadisticas(filtros){
   const hayFiltrosActivos = filtros && Object.values(filtros).some(v => v);
 
   const abiertos = dealsF.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
+  const enPipeline = dealsF.filter(d => ETAPAS_PIPELINE.includes(d.etapa));
+  const enForecast = dealsF.filter(d => ETAPAS_FORECAST.includes(d.etapa));
+  const sinCalificar = abiertos.filter(d => !ETAPAS_PIPELINE.includes(d.etapa) && !ETAPAS_FORECAST.includes(d.etapa));
   const ganados = dealsF.filter(d => d.etapa === "won");
   const perdidos = dealsF.filter(d => d.etapa === "lost");
   const sumaValor = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0), 0);
@@ -2277,12 +2290,15 @@ function renderEstadisticas(filtros){
   const filasPor = (valores, obtenerValor) => valores.map(v => {
     const dealsV = dealsF.filter(d => obtenerValor(d) === v);
     const abiertosV = dealsV.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
+    const pipelineV = dealsV.filter(d => ETAPAS_PIPELINE.includes(d.etapa));
+    const forecastV = dealsV.filter(d => ETAPAS_FORECAST.includes(d.etapa));
     const ganadosV = dealsV.filter(d => d.etapa === "won");
-    return { v, dealsV, abiertosV, ganadosV };
+    return { v, dealsV, abiertosV, pipelineV, forecastV, ganadosV };
   }).filter(x => x.dealsV.length > 0);
 
-  const filaHtml = ({ v, abiertosV, ganadosV }) =>
-    `<tr><td>${escapeHtml(v)}</td><td>${abiertosV.length}</td><td>${fmtUSD(sumaValor(abiertosV))}</td><td>${ganadosV.length}</td><td>${fmtUSD(sumaValor(ganadosV))}</td></tr>`;
+  const celdaMonto = lista => `${fmtUSD(sumaValor(lista))} <span style="color:var(--texto-suave);">(${lista.length})</span>`;
+  const filaHtml = ({ v, abiertosV, pipelineV, forecastV, ganadosV }) =>
+    `<tr><td>${escapeHtml(v)}</td><td>${abiertosV.length}</td><td>${celdaMonto(pipelineV)}</td><td>${celdaMonto(forecastV)}</td><td>${ganadosV.length}</td><td>${fmtUSD(sumaValor(ganadosV))}</td></tr>`;
 
   const porVendedor = filasPor([...new Set(dealsF.map(d => d.vendedor))].sort(), d => d.vendedor);
   const porCliente = filasPor([...new Set(dealsF.map(d => d.cliente))].sort(), d => d.cliente);
@@ -2292,8 +2308,8 @@ function renderEstadisticas(filtros){
     <div>
       <div class="stats-seccion-titulo">${titulo}</div>
       <table class="stats-tabla">
-        <thead><tr><th>${columna}</th><th>Abiertas</th><th>Valor abierto</th><th>Ganadas</th><th>Valor ganado</th></tr></thead>
-        <tbody>${filas.length > 0 ? filas.map(filaHtml).join("") : '<tr><td colspan="5" style="text-align:center;color:var(--texto-suave);">Sin datos</td></tr>'}</tbody>
+        <thead><tr><th>${columna}</th><th>Abiertas</th><th>Pipeline</th><th>Forecast</th><th>Ganadas</th><th>Valor ganado</th></tr></thead>
+        <tbody>${filas.length > 0 ? filas.map(filaHtml).join("") : '<tr><td colspan="6"style="text-align:center;color:var(--texto-suave);">Sin datos</td></tr>'}</tbody>
       </table>
     </div>
   `;
@@ -2302,12 +2318,13 @@ function renderEstadisticas(filtros){
   // Se limita a los N valores más altos donde la lista puede ser larga (país), para que la barra siga siendo legible.
   const datosEtapa = ETAPAS.map(e => ({ label: e.nombre.replace(/^\d+\.\s*/, ""), valor: abiertos.filter(d => d.etapa === e.id).length }))
     .filter(d => d.valor > 0);
+  // Pipeline + Forecast (Qualified en adelante, sin cerrar): Universe y Lead todavía no tienen números.
   const datosVendedor = porVendedor
-    .map(x => ({ label: x.v, valor: sumaValor(x.abiertosV) }))
+    .map(x => ({ label: x.v, valor: sumaValor(x.pipelineV) + sumaValor(x.forecastV) }))
     .filter(x => x.valor > 0)
     .sort((a, b) => b.valor - a.valor);
   const datosPais = porPais
-    .map(x => ({ label: x.v, valor: sumaValor(x.abiertosV) }))
+    .map(x => ({ label: x.v, valor: sumaValor(x.pipelineV) + sumaValor(x.forecastV) }))
     .filter(x => x.valor > 0)
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 10);
@@ -2317,7 +2334,9 @@ function renderEstadisticas(filtros){
   // (ver más arriba), para que el click (delegado más abajo, fuera de este innerHTML) sepa qué
   // mostrar sin tener que re-filtrar.
   Object.assign(ultimosGruposEstadisticas, {
-    abierto: { titulo: "Pipeline abierto", deals: abiertos },
+    pipeline: { titulo: "Pipeline (Qualified)", deals: enPipeline },
+    forecast: { titulo: "Forecast (Proposal, Forecast y Forecast Commit)", deals: enForecast },
+    sincalificar: { titulo: "Sin calificar (Universe y Lead/Unqualified)", deals: sinCalificar },
     ganadas: { titulo: "Ganadas", deals: ganados },
     perdidas: { titulo: "Perdidas", deals: perdidos },
     cierres: { titulo: "Ganadas + Perdidas (cierres)", deals: [...ganados, ...perdidos] },
@@ -2325,7 +2344,9 @@ function renderEstadisticas(filtros){
 
   cont.innerHTML = `
     <div class="stats-resumen">
-      <div class="stats-card" style="cursor:pointer;" data-grupo="abierto"><div class="etiqueta">Pipeline abierto</div><div class="valor-grande">${abiertos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(abiertos))}</div></div>
+      <div class="stats-card" style="cursor:pointer;" data-grupo="forecast" title="Propuesta formal al cliente: Proposal, Forecast y Forecast Commit"><div class="etiqueta">Forecast</div><div class="valor-grande">${enForecast.length}</div><div class="etiqueta">${fmtUSD(sumaValor(enForecast))}</div></div>
+      <div class="stats-card" style="cursor:pointer;" data-grupo="pipeline" title="Venta en trabajo con números: Qualified"><div class="etiqueta">Pipeline</div><div class="valor-grande">${enPipeline.length}</div><div class="etiqueta">${fmtUSD(sumaValor(enPipeline))}</div></div>
+      <div class="stats-card" style="cursor:pointer;" data-grupo="sincalificar" title="Universe y Lead/Unqualified: todavía sin números"><div class="etiqueta">Sin calificar</div><div class="valor-grande">${sinCalificar.length}</div><div class="etiqueta">Universe y Lead</div></div>
       <div class="stats-card" style="cursor:pointer;" data-grupo="ganadas"><div class="etiqueta">Ganadas</div><div class="valor-grande">${ganados.length}</div><div class="etiqueta">${fmtUSD(sumaValor(ganados))}</div></div>
       <div class="stats-card" style="cursor:pointer;" data-grupo="perdidas"><div class="etiqueta">Perdidas</div><div class="valor-grande">${perdidos.length}</div><div class="etiqueta">${fmtUSD(sumaValor(perdidos))}</div></div>
       <div class="stats-card" style="cursor:pointer;" data-grupo="cierres"><div class="etiqueta">Tasa de conversión</div><div class="valor-grande">${tasaConversion === null ? "—" : tasaConversion + "%"}</div><div class="etiqueta">${cierres} cierre${cierres === 1 ? "" : "s"}</div></div>
@@ -2339,11 +2360,11 @@ function renderEstadisticas(filtros){
         ${renderBarras(datosEtapa, v => v)}
       </div>
       <div class="chart-card">
-        <div class="stats-seccion-titulo">Valor de pipeline abierto por vendedor</div>
+        <div class="stats-seccion-titulo">Pipeline + Forecast por vendedor</div>
         ${renderBarras(datosVendedor, fmtUSD)}
       </div>
       <div class="chart-card">
-        <div class="stats-seccion-titulo">Valor de pipeline abierto por país ${datosPais.length === 10 ? "(top 10)" : ""}</div>
+        <div class="stats-seccion-titulo">Pipeline + Forecast por país ${datosPais.length === 10 ? "(top 10)" : ""}</div>
         ${renderBarras(datosPais, fmtUSD)}
       </div>
     </div>
@@ -2398,17 +2419,19 @@ function renderForecast(filtros){
   const actual = indiceQ(new Date().toISOString().slice(0, 10));
   const suma = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0), 0);
   const ponderado = lista => lista.reduce((s, d) => s + (Number(d.valor) || 0) * (PROBABILIDAD_POR_ETAPA[d.etapa] ?? 0) / 100, 0);
-  const abiertos = base.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
+  // Solo Pipeline (Qualified) y Forecast (Proposal en adelante): Universe y Lead no tienen números todavía.
+  const abiertos = base.filter(d => ETAPAS_PIPELINE.includes(d.etapa) || ETAPAS_FORECAST.includes(d.etapa));
+  const conCantidad = lista => `${fmtUSD(suma(lista))} <span style="color:var(--texto-suave);">(${lista.length})</span>`;
 
   const fila = (clave, titulo, abiertosQ, ganadosQ) => {
     ultimosGruposEstadisticas[clave] = { titulo: `Forecast · ${titulo}`, deals: [...ganadosQ, ...abiertosQ] };
     return `<tr style="cursor:pointer;" data-grupo="${clave}"><td>${titulo}</td>`
       + `<td>${fmtUSD(suma(ganadosQ))}</td>`
+      + `<td>${conCantidad(abiertosQ.filter(d => ETAPAS_FORECAST.includes(d.etapa)))}</td>`
       + `<td>${fmtUSD(suma(abiertosQ.filter(d => d.etapa === "forecastcommit")))}</td>`
-      + `<td>${fmtUSD(suma(abiertosQ.filter(d => d.etapa === "forecast")))}</td>`
+      + `<td>${conCantidad(abiertosQ.filter(d => ETAPAS_PIPELINE.includes(d.etapa)))}</td>`
       + `<td>${fmtUSD(ponderado(abiertosQ))}</td>`
-      + `<td>${fmtUSD(suma(abiertosQ.filter(d => d.upside)))}</td>`
-      + `<td>${fmtUSD(suma(abiertosQ))} <span style="color:var(--texto-suave);">(${abiertosQ.length})</span></td></tr>`;
+      + `<td>${fmtUSD(suma(abiertosQ.filter(d => d.upside)))}</td></tr>`;
   };
 
   const filas = [];
@@ -2427,10 +2450,10 @@ function renderForecast(filtros){
     <div>
       <div class="stats-seccion-titulo">Forecast por quarter <span style="font-weight:400;">(por fecha estimada de cierre — no usa los filtros de Año y Trimestre)</span></div>
       <table class="stats-tabla">
-        <thead><tr><th>Quarter</th><th>Ganado</th><th>Commit</th><th>Forecast</th><th>Ponderado</th><th>Upside</th><th>Pipeline abierto</th></tr></thead>
+        <thead><tr><th>Quarter</th><th>Ganado</th><th>Forecast</th><th>de eso, Commit</th><th>Pipeline</th><th>Ponderado</th><th>Upside</th></tr></thead>
         <tbody>${filas.join("")}</tbody>
       </table>
-      <div style="font-size:11.5px; color:var(--texto-suave); margin-top:4px;">Commit = etapa Forecast Commit · Ponderado = valor × probabilidad de la etapa, sobre los abiertos · Upside = abiertos marcados como elegibles para adelantarse de quarter.</div>
+      <div style="font-size:11.5px; color:var(--texto-suave); margin-top:4px;">Forecast = propuesta formal al cliente (Proposal, Forecast y Forecast Commit) · Commit = la parte en Forecast Commit · Pipeline = venta en trabajo con números (Qualified) · Ponderado = valor × probabilidad de la etapa, sobre Pipeline + Forecast · Upside = Pipeline + Forecast marcados como elegibles para adelantarse de quarter. Universe y Lead no entran.</div>
     </div>
   `;
 }
@@ -2874,6 +2897,12 @@ function renderTablero(){
       } else if(GATE_PRESALES.includes(etapaDestino) && !deal.presalesAsignadoEmail){
         const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
         abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: el presales asignado es obligatorio a partir de Qualified. Abrí la tarjeta y elegí un presales primero.`);
+      } else if(GATE_VALOR.includes(etapaDestino) && !(Number(deal.valor) > 0)){
+        const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
+        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: el valor estimado es obligatorio a partir de Qualified (en Qualified alcanza con un número aproximado). Abrí la tarjeta y completá el valor primero.`);
+      } else if(GATE_SUCURSAL.includes(etapaDestino) && !deal.sucursal){
+        const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
+        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: la filial de Sunset responsable es obligatoria a partir de Qualified. Abrí la tarjeta y elegí la sucursal primero.`);
       } else if(GATE_CANS.includes(etapaDestino) && !deal.linkCans){
         const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
         abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: el CANS es obligatorio a partir de Proposal. Abrí la tarjeta y completá el link al CANS primero.`);
@@ -3633,6 +3662,16 @@ document.getElementById("form").addEventListener("submit", async e => {
   if(GATE_PRESALES.includes(datos.etapa) && !datos.presalesAsignadoEmail){
     const nombreEtapa = ETAPAS.find(x => x.id === datos.etapa).nombre;
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta asignar el presales.`);
+    return;
+  }
+  if(GATE_VALOR.includes(datos.etapa) && !(datos.valor > 0)){
+    const nombreEtapa = ETAPAS.find(x => x.id === datos.etapa).nombre;
+    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta el valor estimado (mayor que 0; en Qualified alcanza con un número aproximado).`);
+    return;
+  }
+  if(GATE_SUCURSAL.includes(datos.etapa) && !datos.sucursal){
+    const nombreEtapa = ETAPAS.find(x => x.id === datos.etapa).nombre;
+    abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta elegir la filial de Sunset responsable (Sucursal Sunset responsable).`);
     return;
   }
   if(GATE_CANS.includes(datos.etapa) && !datos.linkCans){
