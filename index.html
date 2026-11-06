@@ -891,6 +891,7 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
         <option value="">Todos los vendedores</option>
       </select>
       <select id="filtroAnio">
+        <option value="actual" selected>Año en curso + abiertos anteriores</option>
         <option value="">Todos los años</option>
       </select>
       <select id="filtroTrimestre">
@@ -2136,7 +2137,13 @@ function poblarSelects(){
   };
   poblar("filtroCliente", clientesUnicos(), "Todos los clientes");
   poblar("filtroPais", paisesUnicos(), "Todos los países");
+  // Opción por defecto "<año> + abiertos anteriores" (ver ANIO_VISTA_ACTUAL en pasaFiltros): poblar()
+  // la pisa, así que se vuelve a agregar primero y se respeta si era la elegida.
+  const selAnio = document.getElementById("filtroAnio");
+  const anioPrevio = selAnio.value;
   poblar("filtroAnio", aniosUnicos(), "Todos los años");
+  selAnio.insertAdjacentHTML("afterbegin", `<option value="${ANIO_VISTA_ACTUAL}">${new Date().getFullYear()} + abiertos anteriores</option>`);
+  if(anioPrevio === ANIO_VISTA_ACTUAL) selAnio.value = ANIO_VISTA_ACTUAL;
 
   // Cliente y País son selects cerrados (a pedido de Patricio, para evitar que cada comercial
   // cargue el mismo cliente con mayúsculas/minúsculas o espacios distintos). Las opciones nuevas
@@ -2181,6 +2188,7 @@ function poblarSelects(){
   document.getElementById("f_motivoPerdidaConfirm").innerHTML = opcionesMotivo;
 }
 
+const ANIO_VISTA_ACTUAL = "actual"; // valor del filtro Año = año en curso + abiertos de años anteriores (default)
 function pasaFiltros(d, filtros){
   if(filtros.soloMias && emailDuenoDeal(d) !== emailUsuarioActual()) return false;
   if(filtros.vendedor && d.vendedor !== filtros.vendedor) return false;
@@ -2189,7 +2197,13 @@ function pasaFiltros(d, filtros){
   // Año/Trimestre: la fecha "base" depende de la etapa del deal (ver fechaFiltroTemporal) — abiertos
   // por fecha de creación, Ganados/Perdidos por su fecha real de cierre.
   const fechaBase = fechaFiltroTemporal(d);
-  if(filtros.anio && (!fechaBase || fechaBase.slice(0, 4) !== filtros.anio)) return false;
+  if(filtros.anio === ANIO_VISTA_ACTUAL){
+    // Vista por defecto (6 nov 2026, pedido de un comercial): año en curso, pero sin esconder los
+    // deals abiertos creados en años anteriores que siguen en trabajo. Ganados/Perdidos de otros
+    // años solo se ven eligiendo ese año (o "Todos los años") en el filtro.
+    const anioActual = String(new Date().getFullYear());
+    if(ETAPAS_CIERRE.includes(d.etapa) && (!fechaBase || fechaBase.slice(0, 4) !== anioActual)) return false;
+  } else if(filtros.anio && (!fechaBase || fechaBase.slice(0, 4) !== filtros.anio)) return false;
   if(filtros.trimestre && trimestreDeFecha(fechaBase) !== filtros.trimestre) return false;
   if(filtros.busqueda){
     const q = filtros.busqueda.toLowerCase();
@@ -2254,7 +2268,7 @@ function renderEstadisticas(filtros){
   // Mismos filtros de la barra lateral (cliente/país/vendedor/año/búsqueda) que el tablero —
   // así las estadísticas siempre reflejan el recorte que el usuario tiene armado.
   const dealsF = filtros ? deals.filter(d => pasaFiltros(d, filtros)) : deals;
-  const hayFiltrosActivos = filtros && Object.values(filtros).some(v => v);
+  const hayFiltrosActivos = filtros && Object.entries(filtros).some(([k, v]) => v && !(k === "anio" && v === ANIO_VISTA_ACTUAL));
 
   const abiertos = dealsF.filter(d => !ETAPAS_CIERRE.includes(d.etapa));
   const enPipeline = dealsF.filter(d => ETAPAS_PIPELINE.includes(d.etapa));
@@ -3770,7 +3784,7 @@ document.getElementById("btnLimpiar").addEventListener("click", () => {
   document.getElementById("filtroCliente").value = "";
   document.getElementById("filtroPais").value = "";
   document.getElementById("filtroVendedor").value = "";
-  document.getElementById("filtroAnio").value = "";
+  document.getElementById("filtroAnio").value = ANIO_VISTA_ACTUAL; // vuelve a la vista por defecto, no a "Todos los años"
   document.getElementById("filtroTrimestre").value = "";
   renderTablero();
 });
