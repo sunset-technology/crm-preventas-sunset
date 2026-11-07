@@ -1644,6 +1644,9 @@ function dealDesdeItemGraph(item){
     fechaCambioEtapa: f[CAMPO_SP.fechaCambioEtapa]
       ? f[CAMPO_SP.fechaCambioEtapa].slice(0, 10)
       : (item.lastModifiedDateTime ? item.lastModifiedDateTime.slice(0, 10) : hoyISO()),
+    // true = la columna está vacía en SharePoint y fechaCambioEtapa es la última modificación del ítem
+    // (cualquier edición la mueve): sirve para "días en etapa", pero no para fechar un cierre (ver fechaFiltroTemporal).
+    fechaCambioEtapaEstimada: !f[CAMPO_SP.fechaCambioEtapa],
   };
 }
 
@@ -2092,9 +2095,16 @@ function clientesFinalesUnicos(){
 //   - Perdidos: fecha de cambio de etapa (el momento real en que se marcó como perdido — no hay un
 //     campo de "fecha de pérdida" separado, y fechaCambioEtapa ya registra ese momento).
 // Con fallback a la Fecha estimada de cierre si el campo que corresponde está vacío (deals viejos).
+// 6 nov 2026: si la columna "Fecha de cambio de etapa" está vacía en SharePoint, fechaCambioEtapa es la
+// última modificación del ítem (ver fechaCambioEtapaEstimada) y no sirve para fechar el cierre: cualquier
+// edición posterior (ej. corrección masiva de links) mandaba Lost de 2025 al año en curso. En ese caso
+// se usa la Fecha estimada de cierre.
+function fechaCambioEtapaConfiable(d){
+  return d.fechaCambioEtapaEstimada ? "" : (d.fechaCambioEtapa || "");
+}
 function fechaFiltroTemporal(d){
-  if(d.etapa === "won") return d.fechaAdjudicacion || d.fechaCambioEtapa || d.fecha || "";
-  if(d.etapa === "lost") return d.fechaCambioEtapa || d.fecha || "";
+  if(d.etapa === "won") return d.fechaAdjudicacion || fechaCambioEtapaConfiable(d) || d.fecha || d.fechaCreacion || d.fechaCambioEtapa || "";
+  if(d.etapa === "lost") return fechaCambioEtapaConfiable(d) || d.fecha || d.fechaCreacion || d.fechaCambioEtapa || "";
   return d.fechaCreacion || d.fecha || "";
 }
 // Orden descendente: interesa ver primero el año en curso y los próximos, no el historial viejo.
@@ -2452,7 +2462,7 @@ function renderForecast(filtros){
   const atrasados = abiertos.filter(d => indiceQ(d.fecha) !== null && indiceQ(d.fecha) < actual);
   if(atrasados.length) filas.push(fila("fq:atrasados", "Atrasados (cierre vencido)", atrasados, []));
   for(let i = actual; i < actual + 4; i++){
-    const ganadosQ = base.filter(d => d.etapa === "won" && indiceQ(d.fechaAdjudicacion || d.fechaCambioEtapa) === i);
+    const ganadosQ = base.filter(d => d.etapa === "won" && indiceQ(fechaFiltroTemporal(d)) === i);
     filas.push(fila(`fq:${i}`, nombreQ(i), abiertos.filter(d => indiceQ(d.fecha) === i), ganadosQ));
   }
   const despues = abiertos.filter(d => indiceQ(d.fecha) !== null && indiceQ(d.fecha) >= actual + 4);
@@ -3002,9 +3012,11 @@ function moverDeal(deal, etapaDestino, opciones = {}){
   const etapaAnterior = deal.etapa;
   const fechaAnterior = deal.fechaCambioEtapa;
   const fechaAdjudicacionAnterior = deal.fechaAdjudicacion;
+  const fechaEstimadaAnterior = deal.fechaCambioEtapaEstimada;
 
   deal.etapa = etapaDestino;
   deal.fechaCambioEtapa = hoyISO();
+  deal.fechaCambioEtapaEstimada = false;
   // Fecha de adjudicación (consolidado 1 sep 2026 — antes existía un campo aparte "fecha de cierre
   // real", revertido el mismo día): se completa sola, una sola vez, la primera vez que el deal pasa
   // a Won — nunca se puede cargar a mano (no hay input para esto en el form). Si ya la tenía (ej. la
@@ -3020,6 +3032,7 @@ function moverDeal(deal, etapaDestino, opciones = {}){
       deal.etapa = etapaAnterior;
       deal.fechaCambioEtapa = fechaAnterior;
       deal.fechaAdjudicacion = fechaAdjudicacionAnterior;
+      deal.fechaCambioEtapaEstimada = fechaEstimadaAnterior;
       renderTablero();
       mostrarErrorGraph("mover etapa", e);
     });
@@ -3192,6 +3205,7 @@ document.getElementById("btnDeshacer").addEventListener("click", () => {
     if(deal){
       deal.etapa = ultimo.etapaAnterior;
       deal.fechaCambioEtapa = ultimo.fechaAnterior;
+      deal.fechaCambioEtapaEstimada = false; // el deshacer la escribe en SharePoint, así que pasa a ser real
       renderTablero();
       if(modoConectado){
         actualizarDealEnGraph(deal.id, { etapa: ultimo.etapaAnterior, fechaCambioEtapa: deal.fechaCambioEtapa }).catch(e => mostrarErrorGraph("deshacer", e));
@@ -3728,7 +3742,7 @@ document.getElementById("form").addEventListener("submit", async e => {
       const d = deals.find(x => x.id === editandoId);
       const cambioEtapa = datos.etapa !== etapaOriginal;
       Object.assign(d, datos);
-      if(cambioEtapa) d.fechaCambioEtapa = hoyISO();
+      if(cambioEtapa){ d.fechaCambioEtapa = hoyISO(); d.fechaCambioEtapaEstimada = false; }
       // Fecha de adjudicación (consolidado 1 sep 2026): mismo criterio que en moverDeal() — se
       // completa sola, una sola vez, si el guardado desde el modal es lo que hace pasar el deal a Won.
       const seCompletoAdjudicacion = cambioEtapa && datos.etapa === "won" && !d.fechaAdjudicacion;
