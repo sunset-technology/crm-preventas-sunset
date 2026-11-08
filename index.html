@@ -810,6 +810,16 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     padding:2px 7px;
     border-radius:10px;
   }
+  .badge-falta-cans{
+    display:inline-block;
+    margin-top:7px;
+    margin-left:6px;
+    font-size:10.5px;
+    background:#FDF1DC;
+    color:#9A5B00;
+    padding:2px 7px;
+    border-radius:10px;
+  }
   .badge-cans-creado{
     display:inline-block;
     margin-top:7px;
@@ -1111,8 +1121,9 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 
       <div class="seccion-titulo">Documentos</div>
       <div class="campo">
-        <label>Link al CANS <span style="font-weight:400;">(obligatorio a partir de "Proposal")</span></label>
+        <label>Link al CANS <span style="font-weight:400;">(obligatorio a partir de "Proposal"; si el deal entra a Proposal sin carpeta, se carga cuando el Flujo Q la cree; siempre obligatorio para Forecast)</span></label>
         <input type="text" id="f_linkCans" placeholder="https://sunsettechnology567.sharepoint.com/...">
+        <div id="avisoFaltaCans" style="display:none; font-size:12px; color:#9A5B00; margin-top:4px;"></div>
       </div>
       <div class="campo" id="wrapCarpeta" style="display:none;">
         <label>Carpeta del proceso</label>
@@ -1353,6 +1364,16 @@ const LINK_CONFIG = {
 // de pasar directo de Qualified a Forecast (a pedido de Patricio, 24 ago 2026). Ya no hay soft-prompt
 // para CANS: al ser obligatorio en Proposal, el gate duro cubre el caso antes de llegar a Forecast.
 const GATE_CANS = ["proposal", "forecast", "forecastcommit"];
+// Excepción en Proposal (8 nov 2026, a pedido de Patricio): un deal que entra a Proposal sin carpeta
+// (alta directa en Proposal, o salto desde Universe/Lead) todavía no puede tener CANS, porque la carpeta
+// la crea el Flujo Q recién después de guardar. En ese caso no se exige; la tarjeta muestra
+// "⚠ Falta CANS" hasta que se cargue. Con carpeta (vino de Qualified) se exige como siempre, y para
+// Forecast / Forecast Commit se exige siempre.
+function exigeCansAlEntrar(etapaDestino, deal){
+  if(!GATE_CANS.includes(etapaDestino)) return false;
+  if(etapaDestino === "proposal") return !!(deal && esUrlSegura(deal.linkCarpeta));
+  return true;
+}
 // Won solo se puede alcanzar desde Forecast o Forecast Commit (1 sep 2026, a pedido de Patricio) —
 // no se puede saltar de una etapa temprana (ej. Lead/Qualified) directo a Won. Lost no tiene esta
 // restricción: se puede perder un deal desde cualquier etapa.
@@ -2927,9 +2948,9 @@ function renderTablero(){
       } else if(GATE_SUCURSAL.includes(etapaDestino) && !deal.sucursal){
         const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
         abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: la filial de Sunset responsable es obligatoria a partir de Qualified. Abrí la tarjeta y elegí la sucursal primero.`);
-      } else if(GATE_CANS.includes(etapaDestino) && !deal.linkCans){
+      } else if(exigeCansAlEntrar(etapaDestino, deal) && !deal.linkCans){
         const nombreEtapa = ETAPAS.find(e => e.id === etapaDestino).nombre;
-        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: el CANS es obligatorio a partir de Proposal. Abrí la tarjeta y completá el link al CANS primero.`);
+        abrirBloqueo(`No se puede mover "${deal.titulo}" a ${nombreEtapa} todavía: ${etapaDestino === "proposal" ? "la carpeta del proceso ya está creada, así que el CANS es obligatorio" : "el CANS es obligatorio para pasar a Forecast y Forecast Commit"}. Abrí la tarjeta y completá el link al CANS primero.`);
       } else {
         moverDeal(deal, etapaDestino);
       }
@@ -2971,7 +2992,7 @@ function crearTarjeta(d){
     ${d.fechaProximaAccion ? `<div class="fila"><span>Próx. acción</span><span class="${vencida ? "vencida" : ""}">${fmtFecha(d.fechaProximaAccion)}</span></div>` : ""}
     <div class="fila"><span>En esta etapa</span><span class="dias-etapa">${textoDiasEtapa(d.fechaCambioEtapa)}</span></div>
     ${d.notas ? `<div class="notas">${escapeHtml(d.notas)}</div>` : ""}
-    <span class="badge-vendedor">${escapeHtml(d.vendedor)}</span>${d.presalesAsignado ? `<span class="badge-presales">👤 ${escapeHtml(d.presalesAsignado)}</span>` : ""}${d.sucursal ? `<span class="badge-sucursal">${escapeHtml(d.sucursal)}</span>` : ""}${d.cansCreado ? `<span class="badge-cans-creado">✓ CANS</span>` : ""}
+    <span class="badge-vendedor">${escapeHtml(d.vendedor)}</span>${d.presalesAsignado ? `<span class="badge-presales">👤 ${escapeHtml(d.presalesAsignado)}</span>` : ""}${d.sucursal ? `<span class="badge-sucursal">${escapeHtml(d.sucursal)}</span>` : ""}${d.cansCreado ? `<span class="badge-cans-creado">✓ CANS</span>` : ""}${GATE_CANS.includes(d.etapa) && !d.linkCans ? `<span class="badge-falta-cans" title="${esUrlSegura(d.linkCarpeta) ? "La carpeta ya está creada: subí el CANS y pegá el link en la tarjeta." : "Se carga cuando el Flujo Q cree la carpeta del proceso."}">⚠ Falta CANS</span>` : ""}
   `;
 
   const documentos = [
@@ -3299,6 +3320,12 @@ function abrirModal(id){
     const tieneCarpeta = esUrlSegura(d.linkCarpeta);
     document.getElementById("wrapCarpeta").style.display = tieneCarpeta ? "block" : "none";
     if(tieneCarpeta) document.getElementById("linkCarpeta").href = d.linkCarpeta;
+    const avisoCans = document.getElementById("avisoFaltaCans");
+    const faltaCans = GATE_CANS.includes(d.etapa) && !d.linkCans;
+    avisoCans.style.display = faltaCans ? "block" : "none";
+    avisoCans.textContent = !faltaCans ? ""
+      : tieneCarpeta ? "⚠ Falta el CANS: la carpeta del proceso ya está creada. Subí el CANS a la carpeta y pegá el link acá. Es obligatorio para pasar a Forecast."
+      : "⚠ Falta el CANS: todavía no hay carpeta del proceso. El Flujo Q la crea en unos minutos; después subí el CANS y pegá el link acá.";
     document.getElementById("wrapCansCreado").style.display = "block";
     document.getElementById("indicadorCansCreado").textContent = d.cansCreado
       ? "✓ CANS creado" + (d.fechaCreacionCans ? ` (${fmtFecha(d.fechaCreacionCans)})` : "")
@@ -3324,6 +3351,7 @@ function abrirModal(id){
     document.getElementById("f_upside").checked = false;
     document.getElementById("wrapCarpeta").style.display = "none";
     document.getElementById("wrapCansCreado").style.display = "none";
+    document.getElementById("avisoFaltaCans").style.display = "none";
     // Fecha de cierre (1 sep 2026, ajuste tras confusión real de Patricio): a diferencia de "Estado
     // del CANS" (que sí se oculta en un deal nuevo), este campo queda SIEMPRE visible, incluso en
     // "+ Nueva oportunidad" — antes se ocultaba hasta que el deal ya existiera, y eso hacía parecer
@@ -3702,7 +3730,14 @@ document.getElementById("form").addEventListener("submit", async e => {
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta elegir la filial de Sunset responsable (Sucursal Sunset responsable).`);
     return;
   }
-  if(GATE_CANS.includes(datos.etapa) && !datos.linkCans){
+  // CANS: en Forecast / Forecast Commit siempre; en Proposal solo al ENTRAR con la carpeta ya creada
+  // (ver exigeCansAlEntrar). Un deal que ya está en Proposal sin CANS se puede seguir editando.
+  const dealGuardado = editandoId ? deals.find(x => x.id === editandoId) : null;
+  const entraAEtapa = !editandoId || etapaOriginal !== datos.etapa;
+  const faltaCansAlGuardar = datos.etapa === "proposal"
+    ? entraAEtapa && exigeCansAlEntrar("proposal", dealGuardado)
+    : GATE_CANS.includes(datos.etapa);
+  if(faltaCansAlGuardar && !datos.linkCans){
     const nombreEtapa = ETAPAS.find(x => x.id === datos.etapa).nombre;
     abrirBloqueo(`No se puede guardar "${datos.titulo || "esta oportunidad"}" en ${nombreEtapa} todavía: falta el link al CANS.`);
     return;
