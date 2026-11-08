@@ -820,6 +820,26 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
     padding:2px 7px;
     border-radius:10px;
   }
+  /* Marcas de los flujos de paso de año y cierre del CANS (8 nov 2026) */
+  .badge-flujo{
+    display:inline-block;
+    margin-top:7px;
+    margin-left:6px;
+    font-size:10.5px;
+    background:#E4EEF7;
+    color:#1F4E79;
+    padding:2px 7px;
+    border-radius:10px;
+  }
+  .badge-flujo.error{ background:#FBE3E3; color:#9B1C1C; }
+  .badge-flujo.accion{ background:#FDF1DC; color:#9A5B00; cursor:pointer; text-decoration:underline; }
+  .tabla-paso-anio{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .tabla-paso-anio th, .tabla-paso-anio td{ text-align:left; padding:6px 6px; border-bottom:1px solid #E6E9ED; vertical-align:middle; }
+  .tabla-paso-anio th{ color:var(--texto-suave); font-weight:600; }
+  .tabla-paso-anio input[type="date"]{ font-size:12px; padding:3px 4px; }
+  .tabla-paso-anio .acciones-paso{ display:flex; gap:6px; flex-wrap:wrap; }
+  .tabla-paso-anio button{ font-size:12px; padding:4px 8px; }
+  .aviso-simulacion{ background:#FDF1DC; color:#9A5B00; padding:6px 10px; border-radius:6px; font-size:12.5px; margin-bottom:10px; }
   .badge-cans-creado{
     display:inline-block;
     margin-top:7px;
@@ -1148,6 +1168,25 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
       </div>
       <div class="nota-graph">Prototipo con datos en memoria. La versión conectada guarda estos cambios directo en la lista "Oportunidades_Preventas" de SharePoint vía Microsoft Graph.</div>
     </form>
+  </div>
+</div>
+
+<!-- Paso de año (8 nov 2026): procesos abiertos de años anteriores. Va ANTES de overlayConfirm en el
+     DOM para que el confirm de cierre (Lost) se dibuje por encima. -->
+<div class="overlay" id="overlayPasoAnio">
+  <div class="modal modal-ancho">
+    <h2 id="pasoAnioTitulo">Procesos abiertos de años anteriores</h2>
+    <div id="pasoAnioSimulacion" class="aviso-simulacion" style="display:none;"></div>
+    <p id="pasoAnioTexto" style="font-size:13px; margin-top:0;"></p>
+    <div style="max-height:55vh; overflow-y:auto;">
+      <table class="tabla-paso-anio">
+        <thead><tr><th>Deal</th><th>Cliente</th><th>Etapa</th><th>Cierre est.</th><th>Nueva fecha de cierre</th><th></th></tr></thead>
+        <tbody id="pasoAnioTbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-acciones" style="justify-content:flex-end;">
+      <button type="button" class="btn-secundario" id="btnPasoAnioDespues">Recordarme después</button>
+    </div>
   </div>
 </div>
 
@@ -1523,7 +1562,35 @@ const CAMPO_SP = {
   // Link a la carpeta del proceso (29 oct 2026): lo escribe el Flujo Q al crear la carpeta (y la migración
   // de carpetas viejas). Solo lectura acá: el CRM nunca lo edita.
   linkCarpeta: "LinkCarpeta",
+  // Paso de año y cierre del CANS (8 nov 2026). Las 3 columnas son opcionales para el CRM: si todavía
+  // no existen en SharePoint (ver columnasDisponibles), no se leen ni se escriben y las funciones nuevas
+  // quedan apagadas — así el deploy no depende del orden en que se crean las columnas.
+  // AnioVigente: año al que pertenece el deal hoy (arranca en el de creación; sube al pasarlo de año).
+  anioVigente: "AnioVigente",
+  // PasoAnioEstado: Pendiente lo pone el CRM al pasar de año un deal con carpeta; el flujo "Paso de año –
+  // carpeta" mueve la carpeta al año nuevo y lo deja en OK o Error.
+  pasoAnioEstado: "PasoAnioEstado",
+  // CierreCANSEstado: Pendiente lo pone el CRM al pasar a Won/Lost; el flujo "Cierre – CANS" escribe el
+  // estado en el CANS (Won / Lose / Closed según el motivo de pérdida), en Won lo mueve a
+  // "Docs. Internos (GANADO)" y lo deja en OK, Error o Sin CANS. "Reabierto" = el deal salió de Won/Lost
+  // con el CANS ya cerrado: el flujo solo le avisa al admin (no se deshace nada automáticamente).
+  cierreCansEstado: "CierreCANSEstado",
 };
+// Columnas opcionales (ver arriba) que existen en la lista. En modo prueba (?demo=1) se dan por existentes.
+const CAMPOS_OPCIONALES = ["anioVigente", "pasoAnioEstado", "cierreCansEstado"];
+let columnasDisponibles = new Set();
+function colDisponible(clave){
+  return !modoConectado || columnasDisponibles.has(CAMPO_SP[clave]);
+}
+async function cargarColumnasDisponibles(){
+  try {
+    const data = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/columns?$select=name`);
+    columnasDisponibles = new Set((data.value || []).map(c => c.name));
+  } catch (e) {
+    console.warn("No se pudieron leer las columnas de la lista; paso de año y cierre del CANS quedan apagados:", e);
+    columnasDisponibles = new Set();
+  }
+}
 
 let msalInstance = null;
 let cuentaActiva = null;
@@ -1668,6 +1735,9 @@ function dealDesdeItemGraph(item){
     // true = la columna está vacía en SharePoint y fechaCambioEtapa es la última modificación del ítem
     // (cualquier edición la mueve): sirve para "días en etapa", pero no para fechar un cierre (ver fechaFiltroTemporal).
     fechaCambioEtapaEstimada: !f[CAMPO_SP.fechaCambioEtapa],
+    anioVigente: Number(f[CAMPO_SP.anioVigente]) || 0,
+    pasoAnioEstado: f[CAMPO_SP.pasoAnioEstado] || "",
+    cierreCansEstado: f[CAMPO_SP.cierreCansEstado] || "",
   };
 }
 
@@ -1718,13 +1788,21 @@ function camposGraphDesdeDeal(datos){
   if(datos.fechaAdjudicacion !== undefined && datos.fechaAdjudicacion){
     fields[CAMPO_SP.fechaAdjudicacion] = datos.fechaAdjudicacion + "T00:00:00Z";
   }
+  // Columnas opcionales (paso de año / cierre del CANS): solo si existen en la lista. "" se manda como
+  // null para vaciar el choice.
+  if(datos.anioVigente !== undefined && colDisponible("anioVigente")) fields[CAMPO_SP.anioVigente] = datos.anioVigente || null;
+  if(datos.pasoAnioEstado !== undefined && colDisponible("pasoAnioEstado")) fields[CAMPO_SP.pasoAnioEstado] = datos.pasoAnioEstado || null;
+  if(datos.cierreCansEstado !== undefined && colDisponible("cierreCansEstado")) fields[CAMPO_SP.cierreCansEstado] = datos.cierreCansEstado || null;
   // CANScreado y Fecha de creación del CANS son de solo lectura para el CRM (los escribe Flujo A) —
   // deliberadamente no se incluyen acá para no pisar lo que ya haya escrito ese flujo.
   return fields;
 }
 
 async function cargarDealsDesdeGraph(){
-  const data = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/items?expand=fields&$top=500`);
+  const [data] = await Promise.all([
+    graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/items?expand=fields&$top=500`),
+    cargarColumnasDisponibles(),
+  ]);
   deals = (data.value || []).map(dealDesdeItemGraph);
 }
 
@@ -1959,6 +2037,7 @@ async function conectarASharePoint(){
     cargarBasesMaestras().then(() => {
       poblarSelects(); actualizarContactoProveedorGuardadoUI();
       aplicarVistaMiasPorDefecto();
+      revisarPasoDeAnio();
       if(["clientes", "proveedores", "contactos"].includes(vistaActual)) cambiarVista(vistaActual);
     }); // best-effort, no bloquea el resto de la conexión
     modoConectado = true;
@@ -2974,6 +3053,25 @@ function esUrlSegura(url){
   return /^https?:\/\//i.test((url || "").trim());
 }
 
+// Marcas de paso de año y cierre del CANS en la tarjeta (8 nov 2026).
+const TEXTO_CIERRE_CANS = {
+  "Pendiente": ["", "⏳ Cerrando CANS", "El flujo \"Cierre – CANS\" todavía no lo procesó."],
+  "Error": ["error", "⚠ CANS sin cerrar", "El flujo no pudo cerrar el CANS; el administrador recibió un aviso."],
+  "Sin CANS": ["error", "⚠ Cerrado sin CANS", "El deal se cerró pero no se encontró su CANS."],
+  "Reabierto": ["error", "⚠ CANS cerrado", "El deal salió de Won/Lost con el CANS ya cerrado; lo corrige el administrador."],
+};
+function badgesFlujos(d){
+  let html = "";
+  if(dealPendientePasoAnio(d) && esMiDealParaPasoAnio(d)){
+    html += `<span class="badge-flujo accion badge-paso-anio" title="Proceso abierto de ${anioVigenteDeal(d)}: pasalo a ${anioActualCRM()} o cerralo.">📅 De ${anioVigenteDeal(d)}: pasar o cerrar</span>`;
+  }
+  if(d.pasoAnioEstado === "Pendiente") html += `<span class="badge-flujo" title="El flujo todavía no movió la carpeta al año nuevo.">⏳ Moviendo carpeta</span>`;
+  if(d.pasoAnioEstado === "Error") html += `<span class="badge-flujo error" title="El flujo no pudo mover la carpeta; el administrador recibió un aviso.">⚠ Carpeta sin mover</span>`;
+  const c = TEXTO_CIERRE_CANS[d.cierreCansEstado];
+  if(c) html += `<span class="badge-flujo ${c[0]}" title="${escapeHtml(c[2])}">${c[1]}</span>`;
+  return html;
+}
+
 function crearTarjeta(d){
   const el = document.createElement("div");
   el.className = "tarjeta";
@@ -2992,8 +3090,10 @@ function crearTarjeta(d){
     ${d.fechaProximaAccion ? `<div class="fila"><span>Próx. acción</span><span class="${vencida ? "vencida" : ""}">${fmtFecha(d.fechaProximaAccion)}</span></div>` : ""}
     <div class="fila"><span>En esta etapa</span><span class="dias-etapa">${textoDiasEtapa(d.fechaCambioEtapa)}</span></div>
     ${d.notas ? `<div class="notas">${escapeHtml(d.notas)}</div>` : ""}
-    <span class="badge-vendedor">${escapeHtml(d.vendedor)}</span>${d.presalesAsignado ? `<span class="badge-presales">👤 ${escapeHtml(d.presalesAsignado)}</span>` : ""}${d.sucursal ? `<span class="badge-sucursal">${escapeHtml(d.sucursal)}</span>` : ""}${d.cansCreado ? `<span class="badge-cans-creado">✓ CANS</span>` : ""}${GATE_CANS.includes(d.etapa) && !d.linkCans ? `<span class="badge-falta-cans" title="${esUrlSegura(d.linkCarpeta) ? "La carpeta ya está creada: subí el CANS y pegá el link en la tarjeta." : "Se carga cuando el Flujo Q cree la carpeta del proceso."}">⚠ Falta CANS</span>` : ""}
+    <span class="badge-vendedor">${escapeHtml(d.vendedor)}</span>${d.presalesAsignado ? `<span class="badge-presales">👤 ${escapeHtml(d.presalesAsignado)}</span>` : ""}${d.sucursal ? `<span class="badge-sucursal">${escapeHtml(d.sucursal)}</span>` : ""}${d.cansCreado ? `<span class="badge-cans-creado">✓ CANS</span>` : ""}${GATE_CANS.includes(d.etapa) && !d.linkCans ? `<span class="badge-falta-cans" title="${esUrlSegura(d.linkCarpeta) ? "La carpeta ya está creada: subí el CANS y pegá el link en la tarjeta." : "Se carga cuando el Flujo Q cree la carpeta del proceso."}">⚠ Falta CANS</span>` : ""}${badgesFlujos(d)}
   `;
+  const badgePasoAnio = el.querySelector(".badge-paso-anio");
+  if(badgePasoAnio) badgePasoAnio.addEventListener("click", e => { e.stopPropagation(); abrirPopupPasoAnio(); });
 
   const documentos = [
     { url: d.linkCarpeta, texto: "📁 Carpeta" },
@@ -3026,6 +3126,169 @@ function crearTarjeta(d){
   return el;
 }
 
+// ---- Cierre del CANS (8 nov 2026) ----
+// El CRM es la única fuente del estado: al pasar a Won/Lost deja CierreCANSEstado = Pendiente y el flujo
+// "Cierre – CANS" hace el resto (CRM → CANS, nunca al revés). Si el deal sale de Won/Lost:
+// - con el CANS todavía sin cerrar (Pendiente/Error/Sin CANS, ej. un "Deshacer") → se limpia la marca;
+// - con el CANS ya cerrado (OK) → "Reabierto": el flujo le avisa al admin y se corrige a mano.
+// Devuelve el nuevo valor ("" = vaciar) o undefined si no cambia.
+function nuevoEstadoCierreCans(deal, etapaAnterior, etapaNueva){
+  if(!colDisponible("cierreCansEstado") || etapaAnterior === etapaNueva) return undefined;
+  const veniaCerrado = ETAPAS_CIERRE.includes(etapaAnterior);
+  const vaCerrado = ETAPAS_CIERRE.includes(etapaNueva);
+  if(veniaCerrado && (deal.cierreCansEstado === "OK" || deal.cierreCansEstado === "Reabierto")) return "Reabierto";
+  if(vaCerrado) return "Pendiente";
+  if(veniaCerrado) return "";
+  return undefined;
+}
+function avisoReabierto(deal){
+  alert(`El CANS de "${deal.titulo}" ya estaba cerrado (${deal.etapa === "won" ? "Won" : "Lose/Closed"}). ` +
+    "El CRM no lo reabre solo: se le avisa al administrador para que lo corrija a mano.");
+}
+
+// ---- Paso de año (8 nov 2026) ----
+// Un deal que no se cerró (Won/Lost) en su año pasa al siguiente. Al entrar al CRM en un año nuevo, cada
+// comercial ve un pop-up con sus procesos abiertos de años anteriores y elige, uno por uno:
+// - Pasar al año en curso: pide una nueva fecha estimada de cierre dentro de ese año (si no, Forecast por
+//   quarter lo sigue contando en un trimestre vencido); escribe AnioVigente y, si el deal tiene carpeta,
+//   PasoAnioEstado = Pendiente → el flujo "Paso de año – carpeta" la mueve al año nuevo.
+// - Cerrar como Lost (con el motivo de pérdida de siempre; "Proyecto cancelado por cliente" = Closed en el
+//   CANS). Los Won los cierra el comercial desde el tablero, como siempre.
+// Universe y Lead/Unqualified pasan solos (sin pop-up). El pop-up vuelve a aparecer en cada entrada
+// mientras queden pendientes ("Recordarme después"); el aviso semanal de los lunes también los lista.
+// Pruebas: ?simularAnio=2027 (solo admin, o con ?demo=1) hace que el CRM se comporte como en ese año.
+// Lo que se haga en simulación se guarda de verdad, así que no pasa nada solo: todo pide confirmación.
+const ANIO_PRIMER_PASO = 2027; // el primer cambio de año con esta función es 2026 → 2027
+const ETAPAS_PASO_AUTOMATICO = ["universe", "lead"];
+function anioSimulado(){
+  const v = Number(new URLSearchParams(window.location.search).get("simularAnio"));
+  if(!Number.isInteger(v) || v < 2000 || v > 2100) return 0;
+  if(modoConectado && !esAdmin()) return 0;
+  return v;
+}
+function anioActualCRM(){
+  return anioSimulado() || new Date().getFullYear();
+}
+// Año al que pertenece el deal: AnioVigente; para deals anteriores a la columna, el año de alta
+// (creación del ítem o, si falta, el AAAA del NumeroDeal).
+function anioVigenteDeal(d){
+  if(d.anioVigente) return d.anioVigente;
+  return Number((d.fechaCreacion || "").slice(0, 4))
+    || Number((d.numeroDeal || "").slice(0, 4))
+    || Number((d.fechaCambioEtapa || "").slice(0, 4))
+    || anioActualCRM();
+}
+function pasoAnioActivo(){
+  return colDisponible("anioVigente") && anioActualCRM() >= ANIO_PRIMER_PASO;
+}
+function dealPendientePasoAnio(d){
+  return pasoAnioActivo() && !ETAPAS_CIERRE.includes(d.etapa) && anioVigenteDeal(d) < anioActualCRM();
+}
+// Le corresponde decidir al dueño del deal; al admin, además, los deals sin dueño resoluble.
+function esMiDealParaPasoAnio(d){
+  if(!modoConectado) return true;
+  const dueno = emailDuenoDeal(d);
+  return dueno ? dueno === emailUsuarioActual() : esAdmin();
+}
+function pendientesPasoAnioDelUsuario(){
+  return deals.filter(d => dealPendientePasoAnio(d) && esMiDealParaPasoAnio(d));
+}
+
+async function pasarDealDeAnio(d, anio, nuevaFecha){
+  const anterior = { anioVigente: d.anioVigente, fecha: d.fecha, pasoAnioEstado: d.pasoAnioEstado };
+  const cambios = { anioVigente: anio };
+  if(nuevaFecha) cambios.fecha = nuevaFecha;
+  if(esUrlSegura(d.linkCarpeta) && colDisponible("pasoAnioEstado")) cambios.pasoAnioEstado = "Pendiente";
+  Object.assign(d, cambios);
+  try {
+    if(modoConectado) await actualizarDealEnGraph(d.id, cambios);
+    return true;
+  } catch (e) {
+    Object.assign(d, anterior);
+    mostrarErrorGraph(`pasar "${d.titulo}" a ${anio}`, e);
+    return false;
+  }
+}
+
+let pasoAnioRevisado = false;
+async function revisarPasoDeAnio(){
+  if(pasoAnioRevisado || !pasoAnioActivo()) return;
+  pasoAnioRevisado = true;
+  const anio = anioActualCRM();
+  if(!anioSimulado()){
+    const automaticos = pendientesPasoAnioDelUsuario().filter(d => ETAPAS_PASO_AUTOMATICO.includes(d.etapa));
+    for(const d of automaticos) await pasarDealDeAnio(d, anio, null);
+    if(automaticos.length > 0) renderTablero();
+  }
+  abrirPopupPasoAnio();
+}
+
+function abrirPopupPasoAnio(){
+  const overlay = document.getElementById("overlayPasoAnio");
+  const anio = anioActualCRM();
+  const lista = pendientesPasoAnioDelUsuario()
+    .sort((a, b) => (a.numeroDeal || "").localeCompare(b.numeroDeal || ""));
+  if(lista.length === 0){
+    overlay.classList.remove("activo");
+    return;
+  }
+  const sim = document.getElementById("pasoAnioSimulacion");
+  sim.style.display = anioSimulado() ? "block" : "none";
+  sim.textContent = `Modo simulación: el CRM se comporta como si fuera ${anio}. Lo que hagas acá se guarda de verdad en SharePoint y dispara los flujos: probalo con un deal de prueba.`;
+  document.getElementById("pasoAnioTitulo").textContent = `Procesos abiertos de años anteriores (${lista.length})`;
+  document.getElementById("pasoAnioTexto").textContent =
+    `Estos procesos quedaron abiertos de años anteriores. Elegí, para cada uno, si pasa a ${anio} (con una nueva ` +
+    `fecha estimada de cierre dentro de ${anio}; si tiene carpeta, se mueve sola a ${anio}) o si se cierra como ` +
+    `perdido. Si se ganó, cerralo como Won desde el tablero.`;
+  document.getElementById("pasoAnioTbody").innerHTML = lista.map(d => {
+    const etapa = ETAPAS.find(e => e.id === d.etapa)?.nombre || d.etapa;
+    const fechaSugerida = (d.fecha || "").startsWith(anio + "-") ? d.fecha : "";
+    return `<tr>
+      <td>${d.numeroDeal ? `<span style="color:var(--texto-suave);">${escapeHtml(d.numeroDeal)}</span><br>` : ""}${escapeHtml(d.titulo)}</td>
+      <td>${escapeHtml(d.cliente)}<br><span style="color:var(--texto-suave);">${escapeHtml(d.pais)} · desde ${anioVigenteDeal(d)}</span></td>
+      <td>${escapeHtml(etapa)}</td>
+      <td>${d.fecha ? fmtFecha(d.fecha) : "—"}</td>
+      <td><input type="date" data-fecha-id="${escapeHtml(d.id)}" min="${anio}-01-01" max="${anio}-12-31" value="${fechaSugerida}"></td>
+      <td><div class="acciones-paso">
+        <button type="button" class="btn-primario" data-accion="pasar" data-id="${escapeHtml(d.id)}">Pasar a ${anio}</button>
+        <button type="button" class="btn-secundario" data-accion="cerrar" data-id="${escapeHtml(d.id)}">Cerrar (Lost)</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+  overlay.classList.add("activo");
+}
+
+function confirmarSiSimulacion(){
+  return !anioSimulado() || confirm("Modo simulación: este cambio se guarda de verdad en SharePoint y dispara los flujos. ¿Seguir?");
+}
+
+document.getElementById("pasoAnioTbody").addEventListener("click", async e => {
+  const boton = e.target.closest("button[data-accion]");
+  if(!boton) return;
+  const deal = deals.find(x => String(x.id) === boton.dataset.id);
+  if(!deal || !puedeEditarDeal(deal)) return;
+  const anio = anioActualCRM();
+  if(boton.dataset.accion === "pasar"){
+    const input = [...document.querySelectorAll("#pasoAnioTbody input[data-fecha-id]")].find(i => i.dataset.fechaId === boton.dataset.id);
+    const fecha = input ? input.value : "";
+    if(!fecha.startsWith(anio + "-")){
+      alert(`Elegí la nueva fecha estimada de cierre de "${deal.titulo}", dentro de ${anio}.`);
+      if(input) input.focus();
+      return;
+    }
+    if(!confirmarSiSimulacion()) return;
+    boton.disabled = true;
+    if(await pasarDealDeAnio(deal, anio, fecha)) renderTablero();
+    abrirPopupPasoAnio();
+  } else if(boton.dataset.accion === "cerrar"){
+    if(!confirmarSiSimulacion()) return;
+    abrirConfirmacionCierre(deal, "lost");
+  }
+});
+document.getElementById("btnPasoAnioDespues").addEventListener("click", () => {
+  document.getElementById("overlayPasoAnio").classList.remove("activo");
+});
+
 // ---- Cambio de etapa: mover, confirmar cierre, deshacer ----
 function moverDeal(deal, etapaDestino, opciones = {}){
   if(!puedeEditarDeal(deal)) return; // último candado: todos los caminos del tablero ya lo chequean antes
@@ -3034,6 +3297,10 @@ function moverDeal(deal, etapaDestino, opciones = {}){
   const fechaAnterior = deal.fechaCambioEtapa;
   const fechaAdjudicacionAnterior = deal.fechaAdjudicacion;
   const fechaEstimadaAnterior = deal.fechaCambioEtapaEstimada;
+  const cierreCansAnterior = deal.cierreCansEstado;
+  const nuevoCierreCans = nuevoEstadoCierreCans(deal, etapaAnterior, etapaDestino);
+  if(nuevoCierreCans === "Reabierto" && cierreCansAnterior !== "Reabierto") avisoReabierto(deal);
+  if(nuevoCierreCans !== undefined) deal.cierreCansEstado = nuevoCierreCans;
 
   deal.etapa = etapaDestino;
   deal.fechaCambioEtapa = hoyISO();
@@ -3049,11 +3316,13 @@ function moverDeal(deal, etapaDestino, opciones = {}){
   if(modoConectado){
     const cambios = { etapa: etapaDestino, fechaCambioEtapa: deal.fechaCambioEtapa };
     if(deal.fechaAdjudicacion !== fechaAdjudicacionAnterior) cambios.fechaAdjudicacion = deal.fechaAdjudicacion;
+    if(nuevoCierreCans !== undefined) cambios.cierreCansEstado = nuevoCierreCans;
     actualizarDealEnGraph(deal.id, cambios).catch(e => {
       deal.etapa = etapaAnterior;
       deal.fechaCambioEtapa = fechaAnterior;
       deal.fechaAdjudicacion = fechaAdjudicacionAnterior;
       deal.fechaCambioEtapaEstimada = fechaEstimadaAnterior;
+      deal.cierreCansEstado = cierreCansAnterior;
       renderTablero();
       mostrarErrorGraph("mover etapa", e);
     });
@@ -3109,6 +3378,8 @@ document.getElementById("btnConfirmAceptar").addEventListener("click", () => {
     }
   }
   cerrarConfirmacionCierre();
+  // Si el cierre se pidió desde el pop-up de paso de año, se actualiza la lista (se cierra si quedó vacía).
+  if(document.getElementById("overlayPasoAnio").classList.contains("activo")) abrirPopupPasoAnio();
 });
 
 // ---- Prompt genérico: vincular CANS o propuesta técnica al entrar a la etapa correspondiente ----
@@ -3224,12 +3495,17 @@ document.getElementById("btnDeshacer").addEventListener("click", () => {
   if(ultimo){
     const deal = deals.find(x => x.id === ultimo.id);
     if(deal){
+      const nuevoCierreCans = nuevoEstadoCierreCans(deal, deal.etapa, ultimo.etapaAnterior);
+      if(nuevoCierreCans === "Reabierto" && deal.cierreCansEstado !== "Reabierto") avisoReabierto(deal);
+      if(nuevoCierreCans !== undefined) deal.cierreCansEstado = nuevoCierreCans;
       deal.etapa = ultimo.etapaAnterior;
       deal.fechaCambioEtapa = ultimo.fechaAnterior;
       deal.fechaCambioEtapaEstimada = false; // el deshacer la escribe en SharePoint, así que pasa a ser real
       renderTablero();
       if(modoConectado){
-        actualizarDealEnGraph(deal.id, { etapa: ultimo.etapaAnterior, fechaCambioEtapa: deal.fechaCambioEtapa }).catch(e => mostrarErrorGraph("deshacer", e));
+        const cambios = { etapa: ultimo.etapaAnterior, fechaCambioEtapa: deal.fechaCambioEtapa };
+        if(nuevoCierreCans !== undefined) cambios.cierreCansEstado = nuevoCierreCans;
+        actualizarDealEnGraph(deal.id, cambios).catch(e => mostrarErrorGraph("deshacer", e));
       }
     }
   }
@@ -3776,6 +4052,9 @@ document.getElementById("form").addEventListener("submit", async e => {
     if(editandoId){
       const d = deals.find(x => x.id === editandoId);
       const cambioEtapa = datos.etapa !== etapaOriginal;
+      const nuevoCierreCans = cambioEtapa ? nuevoEstadoCierreCans(d, etapaOriginal, datos.etapa) : undefined;
+      if(nuevoCierreCans === "Reabierto" && d.cierreCansEstado !== "Reabierto") avisoReabierto(d);
+      if(nuevoCierreCans !== undefined) d.cierreCansEstado = nuevoCierreCans;
       Object.assign(d, datos);
       if(cambioEtapa){ d.fechaCambioEtapa = hoyISO(); d.fechaCambioEtapaEstimada = false; }
       // Fecha de adjudicación (consolidado 1 sep 2026): mismo criterio que en moverDeal() — se
@@ -3785,16 +4064,20 @@ document.getElementById("form").addEventListener("submit", async e => {
       if(modoConectado){
         const cambiosExtra = cambioEtapa ? { fechaCambioEtapa: d.fechaCambioEtapa } : {};
         if(seCompletoAdjudicacion) cambiosExtra.fechaAdjudicacion = d.fechaAdjudicacion;
+        if(nuevoCierreCans !== undefined) cambiosExtra.cierreCansEstado = nuevoCierreCans;
         await actualizarDealEnGraph(d.id, { ...datos, ...cambiosExtra });
       }
     } else {
       const fechaCambioEtapa = hoyISO();
       const numeroDeal = generarNumeroDeal(fechaCambioEtapa);
+      // AnioVigente arranca en el año real de alta (nunca el simulado). El Flujo Q lo usa para el año
+      // de la carpeta.
+      const anioVigente = colDisponible("anioVigente") ? new Date().getFullYear() : 0;
       if(modoConectado){
-        const idNuevo = await crearDealEnGraph({ ...datos, fechaCambioEtapa, numeroDeal });
-        deals.push({ id: idNuevo, ...datos, fechaCambioEtapa, numeroDeal });
+        const idNuevo = await crearDealEnGraph({ ...datos, fechaCambioEtapa, numeroDeal, ...(anioVigente ? { anioVigente } : {}) });
+        deals.push({ id: idNuevo, ...datos, fechaCambioEtapa, numeroDeal, anioVigente, fechaCreacion: hoyISO() });
       } else {
-        deals.push({ id: String(nextId++), ...datos, fechaCambioEtapa, numeroDeal });
+        deals.push({ id: String(nextId++), ...datos, fechaCambioEtapa, numeroDeal, anioVigente, fechaCreacion: hoyISO() });
       }
     }
     cerrarModal();
@@ -3960,6 +4243,7 @@ async function iniciarApp(){
         cargarBasesMaestras().then(() => {
           poblarSelects(); actualizarContactoProveedorGuardadoUI();
           aplicarVistaMiasPorDefecto();
+          revisarPasoDeAnio(); // necesita el roster (dueño de deals viejos sin VendedorEmail, EsAdmin)
           // Si la pestaña activa es Clientes/Proveedores/Contactos, la vuelve a renderizar ahora
           // que ya llegaron los datos reales (antes de esto, si el usuario entró directo por hash
           // en #clientes por ej., la tabla habría quedado vacía esperando la conexión).
@@ -3983,6 +4267,7 @@ async function iniciarApp(){
   }
   poblarSelects();
   renderTablero();
+  if(!modoConectado && deals === DEALS_DEMO) revisarPasoDeAnio(); // modo prueba: con ?demo=1&simularAnio=2027
   // Ruteo simple por hash (#tablero, #estadisticas, #clientes, #proveedores, #contactos): permite
   // que un link abierto en pestaña nueva (ej. "gestionar clientes/contactos ↗" desde el modal de
   // oportunidad) caiga directo en la pestaña correcta, sin depender de un click manual.
