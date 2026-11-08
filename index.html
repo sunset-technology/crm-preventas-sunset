@@ -3298,6 +3298,9 @@ function moverDeal(deal, etapaDestino, opciones = {}){
   const fechaAdjudicacionAnterior = deal.fechaAdjudicacion;
   const fechaEstimadaAnterior = deal.fechaCambioEtapaEstimada;
   const cierreCansAnterior = deal.cierreCansEstado;
+  const extra = opciones.extra || {};                       // otros campos que se guardan junto con la etapa
+  const extraAnterior = Object.fromEntries(Object.keys(extra).map(k => [k, deal[k]]));
+  Object.assign(deal, extra);
   const nuevoCierreCans = nuevoEstadoCierreCans(deal, etapaAnterior, etapaDestino);
   if(nuevoCierreCans === "Reabierto" && cierreCansAnterior !== "Reabierto") avisoReabierto(deal);
   if(nuevoCierreCans !== undefined) deal.cierreCansEstado = nuevoCierreCans;
@@ -3314,7 +3317,7 @@ function moverDeal(deal, etapaDestino, opciones = {}){
   renderTablero();
 
   if(modoConectado){
-    const cambios = { etapa: etapaDestino, fechaCambioEtapa: deal.fechaCambioEtapa };
+    const cambios = { ...extra, etapa: etapaDestino, fechaCambioEtapa: deal.fechaCambioEtapa };
     if(deal.fechaAdjudicacion !== fechaAdjudicacionAnterior) cambios.fechaAdjudicacion = deal.fechaAdjudicacion;
     if(nuevoCierreCans !== undefined) cambios.cierreCansEstado = nuevoCierreCans;
     actualizarDealEnGraph(deal.id, cambios).catch(e => {
@@ -3323,6 +3326,7 @@ function moverDeal(deal, etapaDestino, opciones = {}){
       deal.fechaAdjudicacion = fechaAdjudicacionAnterior;
       deal.fechaCambioEtapaEstimada = fechaEstimadaAnterior;
       deal.cierreCansEstado = cierreCansAnterior;
+      Object.assign(deal, extraAnterior);
       renderTablero();
       mostrarErrorGraph("mover etapa", e);
     });
@@ -3369,12 +3373,12 @@ document.getElementById("btnConfirmAceptar").addEventListener("click", () => {
           document.getElementById("f_motivoPerdidaConfirm").focus();
           return; // no se cierra el modal: falta elegir el motivo
         }
-        deal.motivoPerdida = motivo;
-        if(modoConectado){
-          actualizarDealEnGraph(deal.id, { motivoPerdida: motivo }).catch(e => mostrarErrorGraph("guardar motivo de pérdida", e));
-        }
+        // El motivo viaja en el mismo PATCH que la etapa (8 nov 2026): antes eran 2 escrituras casi
+        // simultáneas sobre el mismo ítem, y si fallaba la de la etapa el motivo quedaba guardado igual.
+        moverDeal(deal, "lost", { mostrarToast: false, extra: { motivoPerdida: motivo } });
+      } else {
+        moverDeal(deal, pendingConfirm.etapaDestino, { mostrarToast: false });
       }
-      moverDeal(deal, pendingConfirm.etapaDestino, { mostrarToast: false });
     }
   }
   cerrarConfirmacionCierre();
