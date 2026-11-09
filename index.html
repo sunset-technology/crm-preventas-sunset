@@ -3056,7 +3056,7 @@ function esUrlSegura(url){
 // Marcas de paso de año y cierre del CANS en la tarjeta (8 nov 2026).
 const TEXTO_CIERRE_CANS = {
   "Pendiente": ["", "⏳ Cerrando CANS", "El flujo \"Cierre – CANS\" todavía no lo procesó."],
-  "Error": ["error", "⚠ CANS sin cerrar", "El flujo no pudo cerrar el CANS; el administrador recibió un aviso."],
+  "Error": ["error", "⚠ CANS sin cerrar", "El flujo no pudo cerrar el CANS (por ejemplo, Control CANS incompleto); el comercial recibió un mail con el motivo. Corregilo y tocá Reintentar."],
   "Sin CANS": ["error", "⚠ Cerrado sin CANS", "El deal se cerró pero no se encontró su CANS."],
   "Reabierto": ["error", "⚠ CANS cerrado", "El deal salió de Won/Lost con el CANS ya cerrado; lo corrige el administrador."],
 };
@@ -3069,7 +3069,30 @@ function badgesFlujos(d){
   if(d.pasoAnioEstado === "Error") html += `<span class="badge-flujo error" title="El flujo no pudo mover la carpeta; el administrador recibió un aviso.">⚠ Carpeta sin mover</span>`;
   const c = TEXTO_CIERRE_CANS[d.cierreCansEstado];
   if(c) html += `<span class="badge-flujo ${c[0]}" title="${escapeHtml(c[2])}">${c[1]}</span>`;
+  if(puedeReintentarCierreCans(d)){
+    html += `<span class="badge-flujo accion badge-reintentar-cans" title="Volver a correr el cierre del CANS (después de corregirlo o de cargar el link al CANS).">↻ Reintentar</span>`;
+  }
   return html;
+}
+// "Reintentar" (8 nov 2026): si el flujo no pudo cerrar el CANS (Error / Sin CANS), el deal queda en Won/Lost
+// y el comercial, después de corregir el CANS o cargar su link, vuelve a ponerlo en Pendiente desde la tarjeta.
+function puedeReintentarCierreCans(d){
+  return ["Error", "Sin CANS"].includes(d.cierreCansEstado) && ETAPAS_CIERRE.includes(d.etapa)
+    && colDisponible("cierreCansEstado") && puedeEditarDeal(d);
+}
+async function reintentarCierreCans(d){
+  if(!puedeReintentarCierreCans(d)) return;
+  const anterior = d.cierreCansEstado;
+  d.cierreCansEstado = "Pendiente";
+  renderTablero();
+  if(!modoConectado) return;
+  try {
+    await actualizarDealEnGraph(d.id, { cierreCansEstado: "Pendiente" });
+  } catch (e) {
+    d.cierreCansEstado = anterior;
+    renderTablero();
+    mostrarErrorGraph("reintentar el cierre del CANS", e);
+  }
 }
 
 function crearTarjeta(d){
@@ -3094,6 +3117,8 @@ function crearTarjeta(d){
   `;
   const badgePasoAnio = el.querySelector(".badge-paso-anio");
   if(badgePasoAnio) badgePasoAnio.addEventListener("click", e => { e.stopPropagation(); abrirPopupPasoAnio(); });
+  const badgeReintentar = el.querySelector(".badge-reintentar-cans");
+  if(badgeReintentar) badgeReintentar.addEventListener("click", e => { e.stopPropagation(); reintentarCierreCans(d); });
 
   const documentos = [
     { url: d.linkCarpeta, texto: "📁 Carpeta" },
