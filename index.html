@@ -3166,6 +3166,17 @@ function nuevoEstadoCierreCans(deal, etapaAnterior, etapaNueva){
   if(veniaCerrado) return "";
   return undefined;
 }
+// Antes de sacar un deal de Won/Lost se relee CierreCANSEstado de SharePoint: el flujo lo cambia (Pendiente →
+// OK) mientras el CRM está abierto, y con el valor viejo en memoria el "Reabierto" no se detectaba (8 nov 2026).
+async function refrescarCierreCans(deal){
+  if(!modoConectado || !colDisponible("cierreCansEstado")) return;
+  try {
+    const item = await graphFetch(`/sites/${SITE_ID}/lists/${LIST_ID}/items/${deal.id}?$expand=fields($select=${CAMPO_SP.cierreCansEstado})`);
+    deal.cierreCansEstado = (item.fields || {})[CAMPO_SP.cierreCansEstado] || "";
+  } catch (e) {
+    console.warn("No se pudo releer CierreCANSEstado; se usa el valor en memoria:", e);
+  }
+}
 function avisoReabierto(deal){
   alert(`El CANS de "${deal.titulo}" ya estaba cerrado (${deal.etapa === "won" ? "Won" : "Lose/Closed"}). ` +
     "El CRM no lo reabre solo: se le avisa al administrador para que lo corrija a mano.");
@@ -3315,8 +3326,9 @@ document.getElementById("btnPasoAnioDespues").addEventListener("click", () => {
 });
 
 // ---- Cambio de etapa: mover, confirmar cierre, deshacer ----
-function moverDeal(deal, etapaDestino, opciones = {}){
+async function moverDeal(deal, etapaDestino, opciones = {}){
   if(!puedeEditarDeal(deal)) return; // último candado: todos los caminos del tablero ya lo chequean antes
+  if(ETAPAS_CIERRE.includes(deal.etapa)) await refrescarCierreCans(deal);
   const mostrarToast = opciones.mostrarToast !== false;
   const etapaAnterior = deal.etapa;
   const fechaAnterior = deal.fechaCambioEtapa;
@@ -3519,11 +3531,12 @@ document.getElementById("toast").addEventListener("mouseleave", () => {
   if(deshacerStack.length > 0) reiniciarTimerToast();
 });
 
-document.getElementById("btnDeshacer").addEventListener("click", () => {
+document.getElementById("btnDeshacer").addEventListener("click", async () => {
   const ultimo = deshacerStack.pop();
   if(ultimo){
     const deal = deals.find(x => x.id === ultimo.id);
     if(deal){
+      if(ETAPAS_CIERRE.includes(deal.etapa)) await refrescarCierreCans(deal);
       const nuevoCierreCans = nuevoEstadoCierreCans(deal, deal.etapa, ultimo.etapaAnterior);
       if(nuevoCierreCans === "Reabierto" && deal.cierreCansEstado !== "Reabierto") avisoReabierto(deal);
       if(nuevoCierreCans !== undefined) deal.cierreCansEstado = nuevoCierreCans;
@@ -4081,6 +4094,7 @@ document.getElementById("form").addEventListener("submit", async e => {
     if(editandoId){
       const d = deals.find(x => x.id === editandoId);
       const cambioEtapa = datos.etapa !== etapaOriginal;
+      if(cambioEtapa && ETAPAS_CIERRE.includes(etapaOriginal)) await refrescarCierreCans(d);
       const nuevoCierreCans = cambioEtapa ? nuevoEstadoCierreCans(d, etapaOriginal, datos.etapa) : undefined;
       if(nuevoCierreCans === "Reabierto" && d.cierreCansEstado !== "Reabierto") avisoReabierto(d);
       if(nuevoCierreCans !== undefined) d.cierreCansEstado = nuevoCierreCans;
